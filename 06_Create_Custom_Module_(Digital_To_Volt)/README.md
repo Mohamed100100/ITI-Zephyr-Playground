@@ -10,6 +10,13 @@
 > ```bash
 > source ~/zephyrproject/.venv/bin/activate
 > ```
+>
+> **Hint — where can the module live?** Anywhere. In this lesson it sits next to
+> the app (`digital_to_volt_Module/`), but you can copy that exact folder into
+> your Zephyr workspace — e.g. `~/zephyrproject/digital_to_volt_Module` (next to
+> the `zephyr/` directory) — and just point the build at it:
+> `west build -- -DZEPHYR_EXTRA_MODULES=~/zephyrproject/digital_to_volt_Module .`
+> Zephyr only needs the path + the `zephyr/module.yml` inside it.
 
 ---
 
@@ -37,15 +44,15 @@ A proper Zephyr **module** (not just code pasted into `src/`):
   + public headers + sources.
 * Is discovered at configure time via `ZEPHYR_EXTRA_MODULES`.
 * The demo app `#include <digital_to_volt/digital_to_volt.h>` and calls
-  `d2v_raw_to_mv()` — the same way it would use any upstream Zephyr library.
+  `digital_to_volt()` — the same way it would use any upstream Zephyr library.
 
-Conversion math (integer, no float needed for mV):
+Conversion math (one float helper):
 
 ```
-mv = raw * vref_mv / (2^resolution_bits - 1)
+volts = (float)digital_value * VREF_MV / RESOLUTION_BITS
 ```
 
-Examples at 12-bit / 3.3 V: `0 -> 0 mV`, `2048 -> ~1650 mV`, `4095 -> 3300 mV`.
+Examples at VREF=3300 / RES=12: `0 -> 0.000 V`, `6 -> 1650.000 V`, `12 -> 3300.000 V`.
 
 ---
 
@@ -54,12 +61,12 @@ Examples at 12-bit / 3.3 V: `0 -> 0 mV`, `2048 -> ~1650 mV`, `4095 -> 3300 mV`.
 ```
 06_Create_Custom_Module_(Digital_To_Volt)/
 ├── README.md                        ← this file (full guide)
-├── d2v_module/                      ← THE MODULE (reusable, board-independent)
+├── digital_to_volt_Module/                      ← THE MODULE (reusable, board-independent)
 │   ├── zephyr/module.yml            ← tells Zephyr "this folder is a module"
 │   ├── CMakeLists.txt               ← which .c files to compile, where headers are
 │   ├── Kconfig                      ← CONFIG_DIGITAL_TO_VOLT + VREF_MV + RESOLUTION_BITS
 │   ├── include/digital_to_volt/
-│   │   └── digital_to_volt.h        ← public API (d2v_raw_to_mv, ...)
+│   │   └── digital_to_volt.h        ← public API (digital_to_volt)
 │   └── src/
 │       └── digital_to_volt.c        ← implementation (64-bit-safe integer math)
 └── app/                             ← DEMO APP (uses the module)
@@ -75,7 +82,7 @@ Examples at 12-bit / 3.3 V: `0 -> 0 mV`, `2048 -> ~1650 mV`, `4095 -> 3300 mV`.
 
 ## 3. The module, file by file
 
-### 3.1 `d2v_module/zephyr/module.yml`
+### 3.1 `digital_to_volt_Module/zephyr/module.yml`
 
 ```yaml
 name: digital_to_volt
@@ -90,21 +97,35 @@ build:
 
 Without this file, `ZEPHYR_EXTRA_MODULES` silently ignores the folder.
 
-### 3.2 `d2v_module/CMakeLists.txt`
+### 3.2 `digital_to_volt_Module/CMakeLists.txt`
 
 ```cmake
-zephyr_library_named(digital_to_volt)
-zephyr_library_sources_ifdef(CONFIG_DIGITAL_TO_VOLT src/digital_to_volt.c)
-zephyr_include_directories(include)
+if(CONFIG_DIGITAL_TO_VOLT)
+
+    zephyr_library()
+
+
+    zephyr_library_sources(
+        src/digital_to_volt.c
+    )
+
+
+    zephyr_include_directories(
+        include
+    )
+
+
+endif()
 ```
 
 | Line | Meaning |
 |---|---|
-| `zephyr_library_named(...)` | Create a static library target for this module. |
-| `..._ifdef(CONFIG_DIGITAL_TO_VOLT ...)` | Compile the `.c` **only** when Kconfig enables it (`=n` → zero bytes in binary). |
+| `if(CONFIG_DIGITAL_TO_VOLT) ... endif()` | Plain CMake condition on the Kconfig symbol (`=y` → true). The whole module is compiled only when enabled (`=n` → zero bytes in binary). |
+| `zephyr_library()` | Create the module's static library target (no name needed — one library per CMake file). |
+| `zephyr_library_sources(src/digital_to_volt.c)` | The single source file of this module. |
 | `zephyr_include_directories(include)` | Put `include/` on the compiler path so apps can `#include <digital_to_volt/...>`. |
 
-### 3.3 `d2v_module/Kconfig`
+### 3.3 `digital_to_volt_Module/Kconfig`
 
 ```kconfig
 menuconfig DIGITAL_TO_VOLT    bool "Digital to Volt"
@@ -145,25 +166,43 @@ This is **Kconfig** (see folder `05_KConfig` for the full system):
   `VREF_MV` has no `range` (any positive value allowed); resolution is clamped
   to 6–16 bits.
 
-### 3.4 `d2v_module/include/digital_to_volt/digital_to_volt.h` + `src/digital_to_volt.c`
+### 3.4 `digital_to_volt_Module/include/digital_to_volt/digital_to_volt.h` + `src/digital_to_volt.c`
 
-Public API:
+One function — the whole module:
 
 ```c
-int32_t d2v_raw_to_mv(uint32_t raw, uint8_t resolution_bits, uint32_t vref_mv);
-float   d2v_mv_to_volt(int32_t mv);
-float   d2v_raw_to_volt(uint32_t raw, uint8_t resolution_bits, uint32_t vref_mv);
-bool    d2v_is_above_threshold_mv(int32_t mv, int32_t threshold_mv);
-uint32_t d2v_max_raw(uint8_t resolution_bits);
+/* digital_to_volt.h */
+#ifndef DIGITAL_TO_VOLT_H
+#define DIGITAL_TO_VOLT_H
+
+#include <stdint.h>
+
+float digital_to_volt(uint32_t digital_value);
+
+#endif
 ```
 
-Implementation notes:
+```c
+/* digital_to_volt.c */
+#include <digital_to_volt/digital_to_volt.h>
+#include <zephyr/sys/util.h>
 
-* `d2v_max_raw(bits)` = `(1 << bits) - 1` (12 → 4095). Returns 0 on invalid input.
-* `d2v_raw_to_mv` clamps over-range codes, then does `raw * vref / max` in
-  **64-bit** (`uint64_t`) so `65535 * 5000` never overflows 32-bit.
-* The mV path uses **no float** — safe on FPU-less boards and in ISRs.
-* `mv_to_volt` / `raw_to_volt` are thin float helpers for `LOG_INF("%.3f V")`.
+float digital_to_volt(uint32_t digital_value)
+{
+    return ((float)digital_value *
+            CONFIG_DIGITAL_TO_VOLT_VREF_MV) /
+           CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS;
+}
+```
+
+How it works:
+
+* The function takes **only the raw ADC code**. Vref and resolution come
+  straight from Kconfig (`CONFIG_DIGITAL_TO_VOLT_VREF_MV`,
+  `CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS`) — they are `#define`s baked in at
+  compile time via `autoconf.h`, so no extra arguments are needed.
+* Change Vref in `prj.conf` or `menuconfig`, rebuild, and every call uses the
+  new value — no C code touched.
 
 ---
 
@@ -231,10 +270,10 @@ Same pattern as `zephyr/samples/drivers/adc/adc_dt` and
 ### 4.4 `app/src/main.c` — both modes in one file
 
 * LED: `DT_ALIAS(led0)` → `GPIO_DT_SPEC_GET` → `gpio_pin_configure_dt` → `drive_led()`
-  sets the LED by `d2v_is_above_threshold_mv(mv, VREF/2)` (half scale = 1650 mV at 3.3 V).
+  turns the LED on when `digital_to_volt(raw)` exceeds `LED_THRESHOLD_V` (`VREF/2000`).
 * Real ADC path (overlay with `io-channels` present, e.g. `-b blackpill_f401cc`):
   `adc_is_ready_dt` → `adc_channel_setup_dt` → loop `adc_sequence_init_dt` +
-  `adc_read_dt` → `d2v_raw_to_mv` → `LOG_INF("raw=%u -> %d mV")`.
+  `adc_read_dt` → `digital_to_volt(raw)` → `LOG_INF("raw=%u -> %.3f V")`.
 * Simulate path (no `io-channels`, e.g. `native_sim`): sweeps `raw = 0, step,
   2*step ... max` with `step = max/10`, converts and logs identically — no ADC
   driver touched, so it runs on `native_sim`/`QEMU`/any board.
@@ -251,7 +290,7 @@ source ~/zephyrproject/.venv/bin/activate
 cd "ITI-Zephyr-Playground/06_Create_Custom_Module_(Digital_To_Volt)/app"
 
 # pristine build, module found via ZEPHYR_EXTRA_MODULES:
-west build -p always -b native_sim -- -DZEPHYR_EXTRA_MODULES=../d2v_module .
+west build -p always -b native_sim -- -DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module .
 
 # run (the executable runs on your PC):
 west build -t run
@@ -261,12 +300,10 @@ Expected output (sweep 0 → 4095, LED logic runs but there is no physical LED):
 
 ```
 *** Booting Zephyr OS build ... ***
-[00000000] <inf> d2v_demo: D2V demo: SIMULATE mode, vref=3300 mV, res=12 bit (max=4095)
-[00000500] <inf> d2v_demo: raw=0 -> 0 mV (0.000 V)
-[00001000] <inf> d2v_demo: raw=409 -> 329 mV (0.329 V)
+[00000000] <inf> d2v_demo: D2V demo: SIMULATE mode
+[00000500] <inf> d2v_demo: raw=0 -> 0.000 V
+[00001000] <inf> d2v_demo: raw=410 -> 112750.000 V
 ...
-[00005500] <inf> d2v_demo: raw=2045 -> 1648 mV (1.648 V)
-[00006000] <inf> d2v_demo: raw=2454 -> 1977 mV (1.977 V)
 ```
 
 Prove Kconfig is build-time: change Vref without touching C code:
@@ -300,7 +337,7 @@ cd "ITI-Zephyr-Playground/06_Create_Custom_Module_(Digital_To_Volt)/app"
 # Build for the Black Pill, same extra-module flag.
 # The boards/blackpill_f401cc.overlay provides io-channels, so the app
 # automatically takes the real-ADC path — no prj.conf change needed.
-west build -p always -b blackpill_f401cc -- -DZEPHYR_EXTRA_MODULES=../d2v_module .
+west build -p always -b blackpill_f401cc -- -DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module .
 
 # Flash via ROM DFU (no ST-Link needed):
 #    hold BOOT0, tap NRST, release BOOT0 → lsusb shows 0483:df11
@@ -319,13 +356,13 @@ Expected:
 
 ```
 *** Booting Zephyr OS build ... ***
-[00000000] <inf> d2v_demo: D2V demo: real ADC mode, vref=3300 mV, res=12 bit
-[00000500] <inf> d2v_demo: raw=2048 -> 1650 mV (1.650 V)
+[00000000] <inf> d2v_demo: D2V demo: real ADC mode
+[00000500] <inf> d2v_demo: raw=6 -> 1650.000 V
 ```
 
-Turn the pot: LED (PC13) turns **on above half scale** (1650 mV at 3.3 V Vref),
-off below. That threshold is `VREF/2` in `main.c` — change `VREF_MV` in menuconfig
-and it follows automatically; rebuild + reflash to apply.
+Turn the pot: LED (PC13) turns **on when the converted value exceeds `VREF/2000`**
+(1.65 at 3.3 V Vref), off below. That threshold is `LED_THRESHOLD_V` in `main.c` —
+it follows `VREF_MV` automatically; change Vref in menuconfig, rebuild, reflash.
 
 ---
 
@@ -333,20 +370,20 @@ and it follows automatically; rebuild + reflash to apply.
 
 ```
 prj.conf (CONFIG_ADC=y, CONFIG_DIGITAL_TO_VOLT_*) ──┐
-d2v_module/Kconfig (defines the 3 symbols)           ├─► kconfiglib ─► build/.config ─► autoconf.h
+digital_to_volt_Module/Kconfig (defines the 3 symbols)           ├─► kconfiglib ─► build/.config ─► autoconf.h
 board defconfig                                       │                    (#define CONFIG_DIGITAL_TO_VOLT_VREF_MV 3300 ...)
                                                       │
 boards/blackpill_f401cc.overlay ─────────────────────┼─► dtc/gen_defines ─► devicetree_generated.h
 board .dts + SoC .dtsi                               │                    (DT_ALIAS(led0) -> &gpioc 13 ...)
                                                      ▼
-d2v_module/CMakeLists.txt (ifdef CONFIG_DIGITAL_TO_VOLT) ─► libdigital_to_volt.a
+digital_to_volt_Module/CMakeLists.txt (if(CONFIG_DIGITAL_TO_VOLT)) ─► libdigital_to_volt.a
 app/CMakeLists.txt + src/main.c (#if on io-channels) ──► zephyr.elf/.bin
 ```
 
 * **Kconfig = what code exists + which constants** (`CONFIG_DIGITAL_TO_VOLT=n`
   removes the library; `VREF_MV` / `RESOLUTION_BITS` become `#define`s).
   See folder `05_KConfig`.
-* **CMake = how files become a binary** (`zephyr_library_sources_ifdef` gates the
+* **CMake = how files become a binary** (the `if(CONFIG_DIGITAL_TO_VOLT)` block gates the
   `.c`; `ZEPHYR_EXTRA_MODULES` adds the module to the build).
 * **Devicetree = which hardware** (`led0` = PC13, `io-channels` = ADC1/PA1).
   See folder `04_Kconfig_vs_Devicetree(DTS)`.
@@ -361,8 +398,8 @@ app/CMakeLists.txt + src/main.c (#if on io-channels) ──► zephyr.elf/.bin
 | 10-bit mode | `app/prj.conf` + overlay | `CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS=10`, `zephyr,resolution = <10>` |
 | Use PA0 instead of PA1 | `app/boards/blackpill_f401cc.overlay` | `io-channels = <&adc1 0>` + `channel@0 { reg = <0>; ... }` |
 | Port to F411CE board | new overlay | copy to `app/boards/blackpill_f411ce.overlay`, `-b blackpill_f411ce` |
-| Reuse module in another app | any app | `west build -- -DZEPHYR_EXTRA_MODULES=<path>/d2v_module` + `#include <digital_to_volt/digital_to_volt.h>` |
-| Unit-test the math on PC | any C compiler | compile `d2v_module/src/digital_to_volt.c` standalone — it has no Zephyr includes |
+| Reuse module in another app | any app | `west build -- -DZEPHYR_EXTRA_MODULES=<path>/digital_to_volt_Module` + `#include <digital_to_volt/digital_to_volt.h>` |
+| Unit-test the math on PC | any C compiler | compile `digital_to_volt_Module/src/digital_to_volt.c` standalone — it has no Zephyr includes |
 
 ---
 
@@ -370,8 +407,8 @@ app/CMakeLists.txt + src/main.c (#if on io-channels) ──► zephyr.elf/.bin
 
 | Symptom | Cause / fix |
 |---|---|
-| `digital_to_volt/digital_to_volt.h: No such file` | Module not on the build: forgot `-DZEPHYR_EXTRA_MODULES=../d2v_module`, or typo in path. Must be passed at **configure** time (first `west build`), not on rebuilds. |
-| `undefined reference to d2v_raw_to_mv` | `CONFIG_DIGITAL_TO_VOLT=n` in `.config` (library gated out) — set `=y` in `prj.conf`, pristine rebuild. |
+| `digital_to_volt/digital_to_volt.h: No such file` | Module not on the build: forgot `-DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module`, or typo in path. Must be passed at **configure** time (first `west build`), not on rebuilds. |
+| `undefined reference to digital_to_volt` | `CONFIG_DIGITAL_TO_VOLT=n` in `.config` (library gated out by the `if()` in `CMakeLists.txt`) — set `=y` in `prj.conf`, pristine rebuild. |
 | `CONFIG_DIGITAL_TO_VOLT_* undeclared / menuconfig missing` | `zephyr/module.yml` not found or `kconfig:` line wrong — check filename `zephyr/module.yml` inside the module root. |
 | `main.c: "CONFIG_DIGITAL_TO_VOLT must be enabled"` | Module disabled — set `CONFIG_DIGITAL_TO_VOLT=y` in `prj.conf`, pristine rebuild. |
 | `ADC device not ready / channel setup failed` | Overlay not applied (wrong board name in filename?), `CONFIG_ADC=n`, or PA1 shorted/over-voltage. Check `build/zephyr/zephyr.dts` contains `io-channels`. |
@@ -384,11 +421,11 @@ app/CMakeLists.txt + src/main.c (#if on io-channels) ──► zephyr.elf/.bin
 
 ```bash
 # SIMULATE on PC (no hardware — no io-channels on native_sim)
-west build -p always -b native_sim -- -DZEPHYR_EXTRA_MODULES=../d2v_module .
+west build -p always -b native_sim -- -DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module .
 west build -t run
 
 # REAL ADC on Black Pill (overlay provides io-channels → real path)
-west build -p always -b blackpill_f401cc -- -DZEPHYR_EXTRA_MODULES=../d2v_module .
+west build -p always -b blackpill_f401cc -- -DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module .
 west flash   # DFU mode first: hold BOOT0, tap NRST, release BOOT0
 
 # inspect

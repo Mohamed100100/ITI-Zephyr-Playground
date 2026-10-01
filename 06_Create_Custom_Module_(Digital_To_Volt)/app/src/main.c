@@ -5,13 +5,12 @@
  *
  * Two modes, selected automatically at BUILD time from Devicetree:
  *   io-channels overlay present (Black Pill + boards/*.overlay) -> reads the
- *                real ADC pin (PA1) with the Zephyr ADC API, converts with the
- *                custom module, prints volts, drives LED0 by threshold.
- *   no io-channels (native_sim / QEMU) -> sweeps raw 0..max in software so the
+ *                real ADC pin (PA1) with the Zephyr ADC API, converts with
+ *                digital_to_volt(), prints volts, drives LED0 by threshold.
+ *   no io-channels (native_sim / QEMU) -> sweeps raw 0..4095 in software so the
  *                conversion + LED logic can be tested with no hardware at all.
  *
- * Kconfig (d2v_module/Kconfig) only tunes Vref + resolution:
- *   CONFIG_DIGITAL_TO_VOLT_VREF_MV, CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS.
+ * LED threshold = half scale (VREF / 2).
  */
 
 #include <zephyr/kernel.h>
@@ -34,8 +33,8 @@ LOG_MODULE_REGISTER(d2v_demo, LOG_LEVEL_INF);
 
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
-/* LED threshold = half scale (e.g. 1650 mV at 3300 mV Vref). */
-#define LED_THRESHOLD_MV (CONFIG_DIGITAL_TO_VOLT_VREF_MV / 2)
+/* LED threshold = half of the reference voltage. */
+#define LED_THRESHOLD_V (CONFIG_DIGITAL_TO_VOLT_VREF_MV / 2000.0f)
 
 /* Real ADC path is compiled only when an io-channels overlay exists.
  * Otherwise the simulate path below is used. */
@@ -50,13 +49,9 @@ static const struct adc_dt_spec adc_chan =
 #define D2V_USE_REAL_ADC 0
 #endif
 
-static void drive_led(int32_t mv)
+static void drive_led(float volts)
 {
-	if (d2v_is_above_threshold_mv(mv, LED_THRESHOLD_MV)) {
-		gpio_pin_set_dt(&led, 1);
-	} else {
-		gpio_pin_set_dt(&led, 0);
-	}
+	gpio_pin_set_dt(&led, volts > LED_THRESHOLD_V ? 1 : 0);
 }
 
 #if D2V_USE_REAL_ADC
@@ -113,47 +108,32 @@ int main(void)
 		return 0;
 	}
 
-	LOG_INF("D2V demo: real ADC mode, vref=%d mV, res=%d bit",
-		CONFIG_DIGITAL_TO_VOLT_VREF_MV,
-		CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS);
+	LOG_INF("D2V demo: real ADC mode");
 
 	while (1) {
 		uint32_t raw;
-		int32_t mv;
 		float volts;
 
 		if (read_adc_raw(&raw) == 0) {
-			mv = d2v_raw_to_mv(raw,
-					   CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS,
-					   CONFIG_DIGITAL_TO_VOLT_VREF_MV);
-			volts = d2v_mv_to_volt(mv);
-			LOG_INF("raw=%u -> %d mV (%.3f V)", raw, mv,
-				(double)volts);
-			drive_led(mv);
+			volts = digital_to_volt(raw);
+			LOG_INF("raw=%u -> %.3f V", raw, (double)volts);
+			drive_led(volts);
 		}
 		k_msleep(500);
 	}
 #else
 	uint32_t raw = 0;
-	uint32_t max_raw =
-		d2v_max_raw(CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS);
-	uint32_t step = (max_raw / 10U) ? (max_raw / 10U) : 1U;
 
-	LOG_INF("D2V demo: SIMULATE mode, vref=%d mV, res=%d bit (max=%u)",
-		CONFIG_DIGITAL_TO_VOLT_VREF_MV,
-		CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS, max_raw);
+	LOG_INF("D2V demo: SIMULATE mode");
 
 	while (1) {
-		int32_t mv = d2v_raw_to_mv(raw,
-					   CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS,
-					   CONFIG_DIGITAL_TO_VOLT_VREF_MV);
-		float volts = d2v_mv_to_volt(mv);
+		float volts = digital_to_volt(raw);
 
-		LOG_INF("raw=%u -> %d mV (%.3f V)", raw, mv, (double)volts);
-		drive_led(mv);
+		LOG_INF("raw=%u -> %.3f V", raw, (double)volts);
+		drive_led(volts);
 
-		raw += step;
-		if (raw > max_raw) {
+		raw += 410;
+		if (raw > 4095) {
 			raw = 0;
 		}
 		k_msleep(500);
