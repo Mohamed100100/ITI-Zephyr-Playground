@@ -3,13 +3,15 @@
  *
  * Digital_To_Volt demo app.
  *
- * Two modes (selected at BUILD time by CONFIG_D2V_SIMULATE):
- *   SIMULATE=n + ADC overlay present -> reads the real ADC pin (PA1 on
- *                Black Pill) with the Zephyr ADC API, converts with the
+ * Two modes, selected automatically at BUILD time from Devicetree:
+ *   io-channels overlay present (Black Pill + boards/*.overlay) -> reads the
+ *                real ADC pin (PA1) with the Zephyr ADC API, converts with the
  *                custom module, prints volts, drives LED0 by threshold.
- *   SIMULATE=y (default)             -> sweeps raw 0..max in software so the
- *                conversion + LED logic can be tested on native_sim / QEMU
- *                with no hardware at all.
+ *   no io-channels (native_sim / QEMU) -> sweeps raw 0..max in software so the
+ *                conversion + LED logic can be tested with no hardware at all.
+ *
+ * Kconfig (d2v_module/Kconfig) only tunes Vref + resolution:
+ *   CONFIG_DIGITAL_TO_VOLT_VREF_MV, CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS.
  */
 
 #include <zephyr/kernel.h>
@@ -17,6 +19,10 @@
 #include <zephyr/logging/log.h>
 
 #include <digital_to_volt/digital_to_volt.h>
+
+#if !defined(CONFIG_DIGITAL_TO_VOLT) || (CONFIG_DIGITAL_TO_VOLT == 0)
+#error "CONFIG_DIGITAL_TO_VOLT must be enabled for this demo"
+#endif
 
 LOG_MODULE_REGISTER(d2v_demo, LOG_LEVEL_INF);
 
@@ -28,16 +34,15 @@ LOG_MODULE_REGISTER(d2v_demo, LOG_LEVEL_INF);
 
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
-/* Real-ADC path is compiled only when an io-channels overlay exists AND the
- * user disabled simulation. Everything else stays simulated. */
-#if !defined(CONFIG_D2V_SIMULATE) || (CONFIG_D2V_SIMULATE == 0)
+/* LED threshold = half scale (e.g. 1650 mV at 3300 mV Vref). */
+#define LED_THRESHOLD_MV (CONFIG_DIGITAL_TO_VOLT_VREF_MV / 2)
+
+/* Real ADC path is compiled only when an io-channels overlay exists.
+ * Otherwise the simulate path below is used. */
+#if DT_NODE_EXISTS(DT_PATH(zephyr_user)) && \
+	DT_NODE_HAS_PROP(DT_PATH(zephyr_user), io_channels)
 #define D2V_USE_REAL_ADC 1
 #include <zephyr/drivers/adc.h>
-
-#if !DT_NODE_EXISTS(DT_PATH(zephyr_user)) || \
-	!DT_NODE_HAS_PROP(DT_PATH(zephyr_user), io_channels)
-#error "CONFIG_D2V_SIMULATE=n but no io-channels overlay provided"
-#endif
 
 static const struct adc_dt_spec adc_chan =
 	ADC_DT_SPEC_GET_BY_IDX(DT_PATH(zephyr_user), 0);
@@ -47,9 +52,7 @@ static const struct adc_dt_spec adc_chan =
 
 static void drive_led(int32_t mv)
 {
-	int threshold = CONFIG_D2V_LED_THRESHOLD_MV;
-
-	if (d2v_is_above_threshold_mv(mv, threshold)) {
+	if (d2v_is_above_threshold_mv(mv, LED_THRESHOLD_MV)) {
 		gpio_pin_set_dt(&led, 1);
 	} else {
 		gpio_pin_set_dt(&led, 0);
@@ -111,7 +114,8 @@ int main(void)
 	}
 
 	LOG_INF("D2V demo: real ADC mode, vref=%d mV, res=%d bit",
-		CONFIG_D2V_VREF_MV, CONFIG_D2V_RESOLUTION);
+		CONFIG_DIGITAL_TO_VOLT_VREF_MV,
+		CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS);
 
 	while (1) {
 		uint32_t raw;
@@ -119,8 +123,9 @@ int main(void)
 		float volts;
 
 		if (read_adc_raw(&raw) == 0) {
-			mv = d2v_raw_to_mv(raw, CONFIG_D2V_RESOLUTION,
-					   CONFIG_D2V_VREF_MV);
+			mv = d2v_raw_to_mv(raw,
+					   CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS,
+					   CONFIG_DIGITAL_TO_VOLT_VREF_MV);
 			volts = d2v_mv_to_volt(mv);
 			LOG_INF("raw=%u -> %d mV (%.3f V)", raw, mv,
 				(double)volts);
@@ -130,15 +135,18 @@ int main(void)
 	}
 #else
 	uint32_t raw = 0;
-	uint32_t max_raw = d2v_max_raw(CONFIG_D2V_RESOLUTION);
+	uint32_t max_raw =
+		d2v_max_raw(CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS);
 	uint32_t step = (max_raw / 10U) ? (max_raw / 10U) : 1U;
 
 	LOG_INF("D2V demo: SIMULATE mode, vref=%d mV, res=%d bit (max=%u)",
-		CONFIG_D2V_VREF_MV, CONFIG_D2V_RESOLUTION, max_raw);
+		CONFIG_DIGITAL_TO_VOLT_VREF_MV,
+		CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS, max_raw);
 
 	while (1) {
-		int32_t mv = d2v_raw_to_mv(raw, CONFIG_D2V_RESOLUTION,
-					   CONFIG_D2V_VREF_MV);
+		int32_t mv = d2v_raw_to_mv(raw,
+					   CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS,
+					   CONFIG_DIGITAL_TO_VOLT_VREF_MV);
 		float volts = d2v_mv_to_volt(mv);
 
 		LOG_INF("raw=%u -> %d mV (%.3f V)", raw, mv, (double)volts);
