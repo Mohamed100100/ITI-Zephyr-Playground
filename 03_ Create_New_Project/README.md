@@ -17,7 +17,7 @@
 ## Table of Contents
 
 1. [Know your board](#1-know-your-board)
-2. [Create the project](#2-create-the-project)
+2. [Create the project (CMakeLists + prj.conf/Kconfig + app.overlay/DTS)](#2-create-the-project)
 3. [Write the code](#3-write-the-code)
 4. [Build](#4-build)
 5. [Flash the Black Pill (DFU — no ST-Link needed)](#5-flash-the-black-pill-dfu--no-st-link-needed)
@@ -64,18 +64,26 @@ A Zephyr application is just a folder with three files: `CMakeLists.txt`,
 ```bash
 cd ~/zephyrproject                      # or anywhere you like
 mkdir led_toggle && cd led_toggle
-mkdir src
+mkdir src boards
 ```
 
 Final layout:
 
 ```
 led_toggle/
-├── CMakeLists.txt      ← build system entry point
-├── prj.conf            ← Kconfig options for this app
+├── CMakeLists.txt                      ← build system entry point
+├── prj.conf                            ← Kconfig options for this app (enables GPIO, etc.)
+├── app.overlay                         ← Devicetree overlay, all boards (optional)
+├── boards/
+│   └── blackpill_f401cc.overlay        ← Devicetree overlay, this board only
 └── src/
-    └── main.c          ← the application code
+    └── main.c                          ← the application code
 ```
+
+> You can start with just `CMakeLists.txt` + `prj.conf` + `src/main.c`
+> (Black Pill already defines `led0` = PC13 in its board `.dts`).
+> Add `app.overlay` or `boards/<board>.overlay` when you want to **rename /
+> re-pin** the LED without touching board files — see Section 2.3.
 
 ### 2.1 `CMakeLists.txt`
 
@@ -97,18 +105,111 @@ Line by line:
 | `project(led_toggle)` | Declares the application name inside the Zephyr build system. |
 | `target_sources(app PRIVATE src/main.c)` | Tells the build which source files belong to the application — here, `main.c` in `src/`. Add more files to this list as the app grows. |
 
-### 2.2 `prj.conf`
+### 2.2 `prj.conf` — Kconfig (what gets compiled in)
 
 ```conf
 CONFIG_GPIO=y
 ```
 
-That's all this project needs. `CONFIG_GPIO=y` enables the GPIO driver subsystem.
-(You can also add `CONFIG_LOG=y` and friends later — see Section 8.)
+This file is **Kconfig**, not C code. Each `CONFIG_*` line turns a Zephyr
+subsystem / driver on or off at **compile time**:
 
-> Note: this file can be empty for blinky on most boards, because the board's own
-> defconfig already enables GPIO. Keeping the explicit line documents the
-> requirement and makes the app portable.
+| Line | Meaning |
+|---|---|
+| `CONFIG_GPIO=y` | Compile + link the GPIO driver subsystem (`zephyr/drivers/gpio/` + `gpio_shell`, `gpio_utils`). Without it `gpio_pin_configure_dt()` won't link and the build fails with `undefined reference`. |
+
+Why is it needed here?
+
+* The board's own `*_defconfig` often already enables GPIO, so blinky *may*
+  build with an empty `prj.conf`. Keep the explicit line anyway: it documents
+  the requirement and makes the app portable to boards where GPIO is off by
+  default.
+* Same pattern for everything else you add later:
+
+```conf
+CONFIG_GPIO=y
+CONFIG_LOG=y
+CONFIG_LOG_DEFAULT_LEVEL=3
+CONFIG_SERIAL=y
+CONFIG_CONSOLE=y
+```
+
+Edit interactively with `west build -t menuconfig` (saves back to `build/zephyr/.config`,
+copy what you need into `prj.conf`).
+
+### 2.3 `app.overlay` — Devicetree (which pin is `led0`)
+
+This file is **Devicetree (DTS)**, not C code. It describes **hardware wiring**:
+which GPIO controller + pin + polarity the alias `led0` points to. Your `main.c`
+never hard-codes `PC13` — it uses `DT_ALIAS(led0)`, and the overlay decides what
+that alias means.
+
+Where the default comes from — the board file
+`zephyr/boards/weact/blackpill_f401cc/blackpill_f401cc.dts`:
+
+```dts
+leds {
+    compatible = "gpio-leds";
+    user_led: led {
+        gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
+        label = "User LED";
+    };
+};
+aliases {
+    led0 = &user_led;   /* <-- main.c uses DT_ALIAS(led0) */
+    sw0 = &user_button;
+};
+```
+
+`gpios = <&gpioc 13 GPIO_ACTIVE_LOW>` means: GPIO controller C, pin 13, active-low.
+`GPIO_DT_SPEC_GET(LED0_NODE, gpios)` in `main.c` expands to exactly that.
+
+When do you need an overlay? When you want a **different pin** (e.g. external LED
+on PC14) without editing board files. Create `led_toggle/boards/blackpill_f401cc.overlay`
+(per-board, recommended) — or `led_toggle/app.overlay` (applies to all boards).
+Content is identical:
+
+```dts
+/ {
+    aliases {
+        led0 = &my_led;   /* re-point led0 away from PC13 */
+    };
+
+    my_led: my-led {
+        compatible = "gpio-leds";
+        gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
+        label = "My LED";
+    };
+};
+```
+
+Line by line:
+
+| Line | Meaning |
+|---|---|
+| `aliases { led0 = &my_led; }` | Override the board's `led0` alias to point at *your* node. `main.c` is unchanged — `DT_ALIAS(led0)` now resolves to PC14. |
+| `my_led: my-led { ... }` | Define a new LED node with label `my_led`. |
+| `compatible = "gpio-leds"` | Tells Zephyr this node is a GPIO LED (binds to `dts/bindings/gpio/gpio-leds.yaml`). |
+| `gpios = <&gpioc 14 GPIO_ACTIVE_LOW>` | Controller `gpioc`, pin `14`, active-low flag. Change to `GPIO_ACTIVE_HIGH` for a high-side LED, or `&gpioa 5 ...` for PA5. |
+
+Naming / placement rules:
+
+* `boards/` directory in the app holds **per-board** overlays. File must be named
+  exactly after the board target:
+  ```
+  led_toggle/boards/blackpill_f401cc.overlay   ← used only with -b blackpill_f401cc
+  led_toggle/boards/blackpill_f411ce.overlay   ← used only with -b blackpill_f411ce
+  ```
+* `app.overlay` in the app root applies to **all boards**. Rebuild picks it up automatically.
+* If both exist, **both are applied** (board-specific after generic).
+* No overlay = use the board default (PC13). With overlay = your alias wins.
+
+Verify what got used after a build:
+
+```bash
+grep -r "led0" build/zephyr/include/generated/devicetree_generated.h | head
+west build -t guiconfig   # inspect devicetree in CMake GUI (optional)
+```
 
 ---
 
@@ -285,7 +386,9 @@ k_msleep(100);        // 100 ms on / 100 ms off -> 5 Hz blink
 
 ### 8.2 Use a different pin (e.g. PC14) via an overlay
 
-Create `led_toggle/app.overlay` (no need to edit board files):
+Full explanation in [Section 2.3](#23-appoverlay--devicetree-which-pin-is-led0).
+Short version — create `led_toggle/boards/blackpill_f401cc.overlay`
+(per-board) or `led_toggle/app.overlay` (all boards):
 
 ```dts
 / {
@@ -384,8 +487,8 @@ west debug                        # attach a GDB session
 source ~/zephyrproject/.venv/bin/activate
 
 # create
-mkdir led_toggle && cd led_toggle && mkdir src
-# ... write CMakeLists.txt, prj.conf, src/main.c ...
+mkdir led_toggle && cd led_toggle && mkdir src boards
+# ... write CMakeLists.txt, prj.conf, boards/blackpill_f401cc.overlay, src/main.c ...
 
 # build
 west build -b blackpill_f401cc .
