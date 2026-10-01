@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: Apache-2.0
+# Kconfig symbols owned by the Digital_To_Volt module.
+# In C and prj.conf they appear as CONFIG_<NAME>.
+
+menu "Digital To Volt Module"
+
+config DIGITAL_TO_VOLT
+	bool "Enable Digital_To_Volt conversion library"
+	default y
+	help
+	  Compile the digital_to_volt library (raw ADC counts -> millivolts /
+	  volts). Turn off to remove it from the binary completely.
+
+config D2V_VREF_MV
+	int "ADC reference voltage in millivolts"
+	depends on DIGITAL_TO_VOLT
+	range 100 5000
+	default 3300
+	help
+	  Reference voltage of the ADC in millivolts. Black Pill is powered
+	  at 3.3 V, so 3300 is correct there. Change if your board uses a
+	  different Vref (e.g. 2500, 1800).
+
+config D2V_RESOLUTION
+	int "ADC resolution in bits"
+	depends on DIGITAL_TO_VOLT
+	range 6 16
+	default 12
+	help
+	  Number of ADC resolution bits. 12-bit means raw range 0..4095.
+	  Must match the resolution you configure on the ADC channel.
+
+config D2V_LED_THRESHOLD_MV
+	int "LED threshold in millivolts"
+	depends on DIGITAL_TO_VOLT
+	range 0 5000
+	default 1650
+	help
+	  Demo app turns the LED on when the converted voltage is above
+	  this threshold. Default 1650 mV = half of 3.3 V.
+
+config D2V_SIMULATE
+	bool "Simulate ADC sweep instead of reading hardware"
+	depends on DIGITAL_TO_VOLT
+	default y
+	help
+	  When enabled, the demo app sweeps raw values 0..max in software
+	  instead of touching the ADC driver. Useful on native_sim / QEMU
+	  or when no ADC overlay is provided. Turn off on real hardware
+	  with a working ADC overlay to read the real pin.
+
+endmenu

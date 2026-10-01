@@ -1,0 +1,5 @@
+# this is an out-of-tree Zephyr module
+name: digital_to_volt
+build:
+  cmake: .
+  kconfig: Kconfig
