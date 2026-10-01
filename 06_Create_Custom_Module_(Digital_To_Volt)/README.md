@@ -11,12 +11,27 @@
 > source ~/zephyrproject/.venv/bin/activate
 > ```
 >
-> **Hint — where can the module live?** Anywhere. In this lesson it sits next to
-> the app (`digital_to_volt_Module/`), but you can copy that exact folder into
-> your Zephyr workspace — e.g. `~/zephyrproject/digital_to_volt_Module` (next to
-> the `zephyr/` directory) — and just point the build at it:
-> `west build -- -DZEPHYR_EXTRA_MODULES=~/zephyrproject/digital_to_volt_Module .`
-> Zephyr only needs the path + the `zephyr/module.yml` inside it.
+> **Hint — where can the module live: inside or outside the Zephyr workspace?**
+> Both work. The module is just a folder with `zephyr/module.yml` + `Kconfig` +
+> `CMakeLists.txt` — Zephyr finds it through `ZEPHYR_EXTRA_MODULES`, no matter
+> where it sits:
+>
+> * **Outside (used in this lesson):** `digital_to_volt_Module/` stays here next
+>   to the app, versioned with your project:
+>   ```bash
+>   west build -- -DZEPHYR_EXTRA_MODULES=../digital_to_volt_Module .
+>   ```
+> * **Inside the Zephyr workspace:** copy the exact same folder into
+>   `~/zephyrproject/` (next to the `zephyr/` directory, **not** inside `zephyr/`
+>   itself so `west update` never touches it), then point at it with an absolute
+>   path from any app, anywhere:
+>   ```bash
+>   cp -r digital_to_volt_Module ~/zephyrproject/digital_to_volt_Module
+>   west build -- -DZEPHYR_EXTRA_MODULES=~/zephyrproject/digital_to_volt_Module .
+>   ```
+>
+> Rule of thumb: one project → keep it next to the app (outside). Shared by many
+> projects → put one copy in the workspace (inside) and reuse the path.
 
 ---
 
@@ -46,13 +61,16 @@ A proper Zephyr **module** (not just code pasted into `src/`):
 * The demo app `#include <digital_to_volt/digital_to_volt.h>` and calls
   `digital_to_volt()` — the same way it would use any upstream Zephyr library.
 
-Conversion math (one float helper):
+Conversion math (full-scale mapping):
 
 ```
-volts = (float)digital_value * VREF_MV / RESOLUTION_BITS
+volts = (float)digital_value * VREF_MV / ((2^RESOLUTION_BITS) - 1)
 ```
 
-Examples at VREF=3300 / RES=12: `0 -> 0.000 V`, `6 -> 1650.000 V`, `12 -> 3300.000 V`.
+The divisor is the maximum ADC code, computed in the `.c` as
+`(1UL << CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS) - 1UL`.
+Examples at VREF=3300 / 12-bit (max code 4095): `0 -> 0.000 V`,
+`2048 -> 1.650 V`, `4095 -> 3.300 V`.
 
 ---
 
@@ -189,9 +207,12 @@ float digital_to_volt(uint32_t digital_value);
 
 float digital_to_volt(uint32_t digital_value)
 {
+    uint32_t max_value =
+        (1UL << CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS) - 1UL;
+
     return ((float)digital_value *
             CONFIG_DIGITAL_TO_VOLT_VREF_MV) /
-           CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS;
+           max_value;
 }
 ```
 
@@ -200,9 +221,12 @@ How it works:
 * The function takes **only the raw ADC code**. Vref and resolution come
   straight from Kconfig (`CONFIG_DIGITAL_TO_VOLT_VREF_MV`,
   `CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS`) — they are `#define`s baked in at
-  compile time via `autoconf.h`, so no extra arguments are needed.
-* Change Vref in `prj.conf` or `menuconfig`, rebuild, and every call uses the
-  new value — no C code touched.
+  compile time via `autoconf.h` (force-included by the build, no include needed),
+  so no extra arguments are required.
+* `max_value` is `2^resolution - 1` (4095 at 12-bit) — the full-scale code, so
+  `max code -> exactly Vref`.
+* Change Vref or resolution in `prj.conf` or `menuconfig`, rebuild, and every
+  call uses the new values — no C code touched.
 
 ---
 
