@@ -1,91 +1,71 @@
-# Zephyr Project from Scratch — LED Toggle on WeAct Black Pill (STM32F401CC)
+# Create Your First Zephyr Project — Simple Guide
 
-> **Board:** WeAct Black Pill V1.2 — STM32F401CCU6 (Cortex-M4F, 84 MHz, 256 KB flash / 64 KB SRAM)
-> **Zephyr board target:** `blackpill_f401cc`
-> **Goal:** create a brand-new Zephyr application, build it, and flash it so the
-> on-board LED (PC13, active-low) blinks/toggles.
->
-> **Prerequisite:** a working Zephyr workspace. If you don't have one yet, follow
-> the workspace installation guide first (`west init` + `west update` + SDK +
-> venv). Every command below assumes:
-> ```bash
-> source ~/zephyrproject/.venv/bin/activate
-> ```
+**Goal:** create a new Zephyr app that blinks the on-board LED on the
+**WeAct Black Pill V1.2 (STM32F401CC)**.
 
----
+**Board target:** `blackpill_f401cc`
 
-## Table of Contents
+**Before you start:** Zephyr must already be installed. In every new terminal:
 
-1. [Know your board](#1-know-your-board)
-2. [Create the project (CMakeLists + prj.conf/Kconfig + app.overlay/DTS)](#2-create-the-project)
-3. [Write the code](#3-write-the-code)
-4. [Build](#4-build)
-5. [Flash the Black Pill (DFU — no ST-Link needed)](#5-flash-the-black-pill-dfu--no-st-link-needed)
-6. [What you should see](#6-what-you-should-see)
-7. [How it works — line-by-line](#7-how-it-works--line-by-line)
-8. [Customizing (period, other pins, log output)](#8-customizing)
-9. [Alternative: flash via SWD (ST-Link/J-Link)](#9-alternative-flash-via-swd-st-linkj-link)
-10. [Troubleshooting](#10-troubleshooting)
-11. [Cheat sheet](#11-cheat-sheet)
+```bash
+source ~/zephyrproject/.venv/bin/activate
+```
 
 ---
 
 ## 1. Know your board
 
-Verify Zephyr knows your board:
+Check that Zephyr knows the board:
 
 ```bash
 west boards | grep -i blackpill
-# blackpill_f401ce, blackpill_f401cc, blackpill_f411ce, blackpill_h523ce, blackpill_u585ci
 ```
 
-**STM32F401CCU6 facts (from the board's devicetree — `zephyr/boards/weact/blackpill_f401cc/`):**
+Important facts about the Black Pill F401CC:
 
 | Item | Value |
 |---|---|
-| Zephyr target name | `blackpill_f401cc` |
-| LED | `PC13`, **active-low** (sinking), alias `led0` |
-| User button | `PA0`, alias `sw0` |
-| Console UART | `USART1` TX=`PA9` RX=`PA10`, 115200 8N1 (needs USB-TTL dongle) |
-| Clock | 25 MHz HSE + PLL → 84 MHz sysclk |
-| Flash via USB | factory ROM DFU bootloader (`0483:df11`) |
-| Flash via SWD | 3V3, GND, SWCLK, SWDIO header |
+| Board name | `blackpill_f401cc` |
+| On-board LED | PC13, **active-low** (alias `led0`) |
+| User button | PA0 (alias `sw0`) |
+| Console UART | PA9 (TX), PA10 (RX), 115200 |
+| CPU | STM32F401CCU6, Cortex-M4F, 84 MHz |
+| Flash | 256 KB |
+| SRAM | 64 KB |
+| Flashing | USB DFU bootloader (no ST-Link needed) |
 
-> ⚠️ The USB-C port is **power + DFU only** — it is *not* a UART. To see `printk`
-> output you must wire PA9/PA10 to a USB-TTL adapter.
+> The USB-C port is **power + DFU only**, not a serial port. To see `printk`
+> output, you need a USB-TTL adapter on PA9/PA10.
 
 ---
 
-## 2. Create the project
+## 2. Create the project folder
 
-A Zephyr application is just a folder with three files: `CMakeLists.txt`,
-`prj.conf`, and `src/main.c`.
+A Zephyr app needs only three files: `CMakeLists.txt`, `prj.conf`, and
+`src/main.c`.
 
 ```bash
-cd ~/zephyrproject                      # or anywhere you like
+cd ~/zephyrproject
 mkdir led_toggle && cd led_toggle
-mkdir src boards
+mkdir src
 ```
 
-Final layout:
+Your folder will look like this:
 
 ```
 led_toggle/
-├── CMakeLists.txt                      ← build system entry point
-├── prj.conf                            ← Kconfig options for this app (enables GPIO, etc.)
-├── app.overlay                         ← Devicetree overlay, all boards (optional)
-├── boards/
-│   └── blackpill_f401cc.overlay        ← Devicetree overlay, this board only
+├── CMakeLists.txt     ← build instructions
+├── prj.conf           ← feature switches
 └── src/
-    └── main.c                          ← the application code
+    └── main.c         ← application code
 ```
 
-> You can start with just `CMakeLists.txt` + `prj.conf` + `src/main.c`
-> (Black Pill already defines `led0` = PC13 in its board `.dts`).
-> Add `app.overlay` or `boards/<board>.overlay` when you want to **rename /
-> re-pin** the LED without touching board files — see Section 2.3.
+The Black Pill already defines `led0` = PC13, so no extra Devicetree file is
+needed for a simple blink.
 
-### 2.1 `CMakeLists.txt`
+---
+
+## 3. Write `CMakeLists.txt`
 
 ```cmake
 cmake_minimum_required(VERSION 3.28.0)
@@ -96,35 +76,30 @@ project(led_toggle)
 target_sources(app PRIVATE src/main.c)
 ```
 
-Line by line:
+What each line means:
 
-| Line | What it does |
+| Line | Meaning |
 |---|---|
-| `cmake_minimum_required(VERSION 3.28.0)` | The minimum CMake version Zephyr requires. |
-| `find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})` | Locates Zephyr using the `ZEPHYR_BASE` environment variable (set by `west zephyr-export` / the venv setup) so the build knows where the OS lives. Fails the build if Zephyr isn't found. |
-| `project(led_toggle)` | Declares the application name inside the Zephyr build system. |
-| `target_sources(app PRIVATE src/main.c)` | Tells the build which source files belong to the application — here, `main.c` in `src/`. Add more files to this list as the app grows. |
+| `cmake_minimum_required(...)` | Minimum CMake version needed |
+| `find_package(Zephyr ...)` | Finds and loads Zephyr |
+| `project(led_toggle)` | Sets the app name |
+| `target_sources(app PRIVATE src/main.c)` | Tells the build to compile `main.c` |
 
-### 2.2 `prj.conf` — Kconfig (what gets compiled in)
+---
+
+## 4. Write `prj.conf`
 
 ```conf
 CONFIG_GPIO=y
 ```
 
-This file is **Kconfig**, not C code. Each `CONFIG_*` line turns a Zephyr
-subsystem / driver on or off at **compile time**:
+This file uses **Kconfig**. Each `CONFIG_*` line turns a feature on or off at
+compile time.
 
-| Line | Meaning |
-|---|---|
-| `CONFIG_GPIO=y` | Compile + link the GPIO driver subsystem (`zephyr/drivers/gpio/` + `gpio_shell`, `gpio_utils`). Without it `gpio_pin_configure_dt()` won't link and the build fails with `undefined reference`. |
+`CONFIG_GPIO=y` means: "include the GPIO driver". Without it, the GPIO functions
+in `main.c` would not link.
 
-Why is it needed here?
-
-* The board's own `*_defconfig` often already enables GPIO, so blinky *may*
-  build with an empty `prj.conf`. Keep the explicit line anyway: it documents
-  the requirement and makes the app portable to boards where GPIO is off by
-  default.
-* Same pattern for everything else you add later:
+You can add more features later, for example:
 
 ```conf
 CONFIG_GPIO=y
@@ -134,193 +109,102 @@ CONFIG_SERIAL=y
 CONFIG_CONSOLE=y
 ```
 
-Edit interactively with `west build -t menuconfig` (saves back to `build/zephyr/.config`,
-copy what you need into `prj.conf`).
-
-### 2.3 `app.overlay` — Devicetree (which pin is `led0`)
-
-This file is **Devicetree (DTS)**, not C code. It describes **hardware wiring**:
-which GPIO controller + pin + polarity the alias `led0` points to. Your `main.c`
-never hard-codes `PC13` — it uses `DT_ALIAS(led0)`, and the overlay decides what
-that alias means.
-
-Where the default comes from — the board file
-`zephyr/boards/weact/blackpill_f401cc/blackpill_f401cc.dts`:
-
-```dts
-leds {
-    compatible = "gpio-leds";
-    user_led: led {
-        gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
-        label = "User LED";
-    };
-};
-aliases {
-    led0 = &user_led;   /* <-- main.c uses DT_ALIAS(led0) */
-    sw0 = &user_button;
-};
-```
-
-`gpios = <&gpioc 13 GPIO_ACTIVE_LOW>` means: GPIO controller C, pin 13, active-low.
-`GPIO_DT_SPEC_GET(LED0_NODE, gpios)` in `main.c` expands to exactly that.
-
-When do you need an overlay? When you want a **different pin** (e.g. external LED
-on PC14) without editing board files. Create `led_toggle/boards/blackpill_f401cc.overlay`
-(per-board, recommended) — or `led_toggle/app.overlay` (applies to all boards).
-Content is identical:
-
-```dts
-/ {
-    aliases {
-        led0 = &my_led;   /* re-point led0 away from PC13 */
-    };
-
-    my_led: my-led {
-        compatible = "gpio-leds";
-        gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
-        label = "My LED";
-    };
-};
-```
-
-Line by line:
-
-| Line | Meaning |
-|---|---|
-| `aliases { led0 = &my_led; }` | Override the board's `led0` alias to point at *your* node. `main.c` is unchanged — `DT_ALIAS(led0)` now resolves to PC14. |
-| `my_led: my-led { ... }` | Define a new LED node with label `my_led`. |
-| `compatible = "gpio-leds"` | Tells Zephyr this node is a GPIO LED (binds to `dts/bindings/gpio/gpio-leds.yaml`). |
-| `gpios = <&gpioc 14 GPIO_ACTIVE_LOW>` | Controller `gpioc`, pin `14`, active-low flag. Change to `GPIO_ACTIVE_HIGH` for a high-side LED, or `&gpioa 5 ...` for PA5. |
-
-Naming / placement rules:
-
-* `boards/` directory in the app holds **per-board** overlays. File must be named
-  exactly after the board target:
-  ```
-  led_toggle/boards/blackpill_f401cc.overlay   ← used only with -b blackpill_f401cc
-  led_toggle/boards/blackpill_f411ce.overlay   ← used only with -b blackpill_f411ce
-  ```
-* `app.overlay` in the app root applies to **all boards**. Rebuild picks it up automatically.
-* If both exist, **both are applied** (board-specific after generic).
-* No overlay = use the board default (PC13). With overlay = your alias wins.
-
-Verify what got used after a build:
-
-```bash
-grep -r "led0" build/zephyr/include/generated/devicetree_generated.h | head
-west build -t guiconfig   # inspect devicetree in CMake GUI (optional)
-```
-
 ---
 
-## 3. Write the code
-
-### 3.1 `src/main.c`
+## 5. Write `src/main.c`
 
 ```c
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
-/* The devicetree alias for the on-board LED (PC13, active-low).
- * Defined by the board's .dts file; DT_ALIAS(led0) resolves to its node.
- */
+/* Ask the Devicetree which pin is the LED. */
 #define LED0_NODE DT_ALIAS(led0)
 
-/* Compile-time check: stop the build early with a clear message if the
- * board doesn't define a led0 alias.
- */
 #if !DT_NODE_HAS_STATUS(LED0_NODE, okay)
-#error "Board does not define a usable 'led0' alias in its devicetree"
+#error "Board does not define a usable 'led0' alias"
 #endif
 
-/* Expands to a ready-to-use struct with the device pointer, pin number
- * and pin flags (including the GPIO_ACTIVE_LOW flag for this LED).
- */
 static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(LED0_NODE, gpios);
 
 int main(void)
 {
     int ret;
 
-    /* Make sure the GPIO device is ready before touching it. */
+    /* Make sure the GPIO driver is ready. */
     if (!gpio_is_ready_dt(&led)) {
         return 0;
     }
 
-    /* Configure the pin as output, starting with the LED off
-     * (for an active-low LED, "off" = logical 1).
-     */
+    /* Configure the LED pin as output, initially off. */
     ret = gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
     if (ret < 0) {
         return 0;
     }
 
     while (1) {
-        /* Toggle the pin: PC13 sinks current -> LED on,
-         * releases -> LED off.
-         */
+        /* Flip the LED on/off. */
         ret = gpio_pin_toggle_dt(&led);
         if (ret < 0) {
             return 0;
         }
-        k_msleep(500);      /* wait 500 ms -> full blink period = 1 s */
+
+        /* Wait 500 ms. Full blink period = 1 second. */
+        k_msleep(500);
     }
 
-    return 0;   /* never reached */
+    return 0;
 }
 ```
 
 ---
 
-## 4. Build
+## 6. Build
 
-From the project folder (with the venv activated):
+From the project folder:
 
 ```bash
-cd ~/zephyrproject/led_toggle        # your app folder
 west build -b blackpill_f401cc .
 ```
 
-That's it — one command. West/CMake will:
+That is all. West and CMake will:
 
-1. Resolve the board's devicetree + Kconfig.
-2. Compile Zephyr + the app with the `arm-zephyr-eabi-gcc` toolchain from the SDK.
-3. Produce `build/zephyr/zephyr.elf`, `zephyr.hex`, and `zephyr.bin`.
+1. Read the board's Devicetree and Kconfig.
+2. Compile Zephyr and your app with the ARM toolchain.
+3. Create the firmware in `build/zephyr/`.
 
-### Useful build variants
+Useful build commands:
 
 ```bash
-west build -p always -b blackpill_f401cc .   # pristine build (clean first)
-west build                                   # incremental rebuild after edits
-west build -t menuconfig                     # interactive Kconfig editor
+west build -b blackpill_f401cc .    # first build
+west build                          # rebuild after edits
+west build -p always -b blackpill_f401cc .   # clean build from scratch
 ```
 
 ---
 
-## 5. Flash the Black Pill (DFU — no ST-Link needed)
+## 7. Flash the board (USB DFU — no ST-Link needed)
 
-The STM32F401 ships with a factory ROM USB DFU bootloader, so you only need a
-USB-C cable.
+The STM32F401 has a built-in USB bootloader, so you only need a USB-C cable.
 
 ### Step 1 — install dfu-util
 
 ```bash
 sudo apt install dfu-util
-dfu-util --version        # >= 0.8 required
+dfu-util --version
 ```
 
 ### Step 2 — enter DFU mode
 
-1. Plug the board into USB-C (it powers up).
-2. **Hold BOOT0**, press and release **NRST**, then release **BOOT0**.
-3. The board re-enumerates as `0483:df11 STM32 DFU`.
+1. Plug the board into USB-C.
+2. **Hold BOOT0**.
+3. Press and release **NRST**.
+4. Release **BOOT0**.
 
-Verify:
+Check that the board is in DFU mode:
 
 ```bash
 lsusb | grep -i dfu
-# Bus 001 Device 0xx: ID 0483:df11 STMicroelectronics STM Device in DFU Mode
-dfu-util -l
+# Should show: 0483:df11 STM Device in DFU Mode
 ```
 
 ### Step 3 — flash
@@ -329,66 +213,71 @@ dfu-util -l
 west flash
 ```
 
-Under the hood this runs the equivalent of:
+This runs roughly:
 
 ```bash
 dfu-util -d 0483:df11 -a 0 -s 0x08000000:leave -D build/zephyr/zephyr.bin
 ```
 
-* `-a 0` — target flash interface AltSetting 0 (internal flash)
-* `-s 0x08000000:leave` — write at the start of flash, then leave DFU mode
-* `-D build/zephyr/zephyr.bin` — the binary built in step 4
-
 ### Step 4 — run
 
-Press **NRST** once after flashing (or `leave` does it automatically) to boot
-your app.
+Press **NRST** once. Your app starts.
 
 ---
 
-## 6. What you should see
+## 8. What you should see
 
-The green LED on the Black Pill blinks: **on for 500 ms, off for 500 ms** (1 Hz).
+The on-board LED blinks:
 
-> Remember the LED is **active-low** (`GPIO_OUTPUT_INACTIVE` = logical 1 = LED off
-> at boot), but `gpio_pin_toggle_dt()` handles polarity for you via the
-> devicetree flags — you just toggle.
+- **ON for 500 ms**
+- **OFF for 500 ms**
+
+That is a 1 Hz blink.
+
+The LED is **active-low**. Zephyr handles the polarity automatically because the
+board's Devicetree says `GPIO_ACTIVE_LOW`. You just call
+`gpio_pin_toggle_dt()`.
 
 ---
 
-## 7. How it works — line-by-line
+## 9. How the code works (simple version)
 
-| Code | Meaning |
+| Code | What it does |
 |---|---|
-| `#include <zephyr/kernel.h>` | Kernel API: `k_msleep()`, etc. |
-| `#include <zephyr/drivers/gpio.h>` | Portable GPIO driver API. **Never** touch HAL/registers directly. |
-| `DT_ALIAS(led0)` | Devicetree macro — resolves the `led0` alias to a node. The alias lives in the board's `.dts` (`/ { aliases { led0 = &user_led; }; }`). |
-| `DT_NODE_HAS_STATUS(..., okay)` | Compile-time safety: fail the build with a clear error if the board has no usable `led0`. |
-| `GPIO_DT_SPEC_GET(LED0_NODE, gpios)` | Expands to `struct gpio_dt_spec` = `{ .port = DEVICE_DT_GET(...), .pin = 13, .dt_flags = GPIO_ACTIVE_LOW }`. All pin knowledge comes from devicetree, **not** hard-coded. |
-| `gpio_is_ready_dt(&led)` | Checks the GPIO port driver is initialized. |
-| `gpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE)` | Sets PC13 as output, initial state "inactive" (LED off for active-low). |
-| `gpio_pin_toggle_dt(&led)` | Flips the pin, respecting the active-low polarity automatically. |
-| `k_msleep(500)` | Sleep 500 ms — cooperative (the CPU can idle; with no other threads the idle thread runs). |
+| `#include <zephyr/kernel.h>` | Gives you `k_msleep()` and other kernel functions |
+| `#include <zephyr/drivers/gpio.h>` | Gives you GPIO functions |
+| `DT_ALIAS(led0)` | Finds the LED node in the Devicetree |
+| `DT_NODE_HAS_STATUS(..., okay)` | Stops the build with a clear error if there is no LED |
+| `GPIO_DT_SPEC_GET(...)` | Builds a struct with the GPIO port, pin, and flags |
+| `gpio_is_ready_dt()` | Checks the GPIO driver is ready |
+| `gpio_pin_configure_dt()` | Sets the pin as an output |
+| `gpio_pin_toggle_dt()` | Flips the pin |
+| `k_msleep(500)` | Waits 500 ms without wasting CPU |
 
-**Why devicetree macros instead of raw pins?** Because the same code compiles for
-any board: on a different board, `led0` may be PA5 active-high — the macros pick
-that up automatically. Your code never changes.
+**Why use Devicetree macros instead of writing "PC13"?**
+Because the same code can run on another board where `led0` is a different pin.
+Only the Devicetree changes — the C code stays the same.
 
 ---
 
-## 8. Customizing
+## 10. Customize
 
-### 8.1 Change the blink period
+### 10.1 Change the blink speed
 
 ```c
-k_msleep(100);        // 100 ms on / 100 ms off -> 5 Hz blink
+k_msleep(100);   /* 100 ms on, 100 ms off = fast blink */
 ```
 
-### 8.2 Use a different pin (e.g. PC14) via an overlay
+### 10.2 Use a different pin with an overlay
 
-Full explanation in [Section 2.3](#23-appoverlay--devicetree-which-pin-is-led0).
-Short version — create `led_toggle/boards/blackpill_f401cc.overlay`
-(per-board) or `led_toggle/app.overlay` (all boards):
+If you want the LED on PC14 instead of PC13, create a Devicetree overlay.
+Make a `boards/` folder and add a file named after the board:
+
+```
+led_toggle/boards/blackpill_f401cc.overlay
+```
+
+Content:
 
 ```dts
 / {
@@ -404,9 +293,15 @@ Short version — create `led_toggle/boards/blackpill_f401cc.overlay`
 };
 ```
 
-Rebuild — `DT_ALIAS(led0)` now resolves to PC14. Nothing in `main.c` changes.
+Rebuild, and `DT_ALIAS(led0)` now points to PC14. You do not change `main.c`.
 
-### 8.3 Add log output over UART (115200 8N1 on PA9/PA10)
+Rules for overlays:
+
+- `boards/<board_name>.overlay` is used only for that board.
+- `app.overlay` in the app root is used for all boards.
+- No overlay means the board's default LED (PC13) is used.
+
+### 10.3 Add log output over UART
 
 `prj.conf`:
 
@@ -418,7 +313,7 @@ CONFIG_SERIAL=y
 CONFIG_CONSOLE=y
 ```
 
-Code — replace the toggle body:
+`main.c`:
 
 ```c
 #include <zephyr/logging/log.h>
@@ -426,82 +321,73 @@ LOG_MODULE_REGISTER(led_toggle, LOG_LEVEL_INF);
 
 /* inside main(), before the loop: */
 LOG_INF("LED toggle app starting");
-
-/* inside the loop: */
-LOG_INF("LED state toggled");
 ```
 
-Wire PA9 → RX, PA10 → TX of a USB-TTL dongle (3.3 V!), GND → GND, then:
+Connect PA9 to a USB-TTL RX, PA10 to TX, and GND to GND (3.3 V only), then:
 
 ```bash
 pip install pyserial
 python -m serial.tools.miniterm /dev/ttyUSB0 115200
 ```
 
-### 8.4 React to the user button (PA0, `sw0`)
+### 10.4 Read the user button (PA0, `sw0`)
 
 ```c
 #define SW0_NODE DT_ALIAS(sw0)
 static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(SW0_NODE, gpios);
 
 gpio_pin_configure_dt(&button, GPIO_INPUT);
-/* in the loop: */
 bool pressed = gpio_pin_get_dt(&button) > 0;
 ```
 
 ---
 
-## 9. Alternative: flash via SWD (ST-Link/J-Link)
+## 11. Alternative: flash with ST-Link or J-Link
 
-If you have a debug probe, solder a 4-pin header (3V3, GND, SWCLK=PA14, SWDIO=PA13)
-and flash without touching BOOT0:
+If you have an SWD debug probe, connect 3V3, GND, SWCLK, and SWDIO, then:
 
 ```bash
-west flash --runner openocd       # with ST-Link
-west flash --runner jlink         # with J-Link
-west debug                        # attach a GDB session
+west flash --runner openocd    # ST-Link
+west flash --runner jlink      # J-Link
+west debug                     # start a debug session
 ```
 
 ---
 
-## 10. Troubleshooting
+## 12. Common problems
 
-| Symptom | Fix |
+| Problem | Fix |
 |---|---|
-| `west: command not found` | `source ~/zephyrproject/.venv/bin/activate` |
-| `west build` says board not found | Check the name: `west boards \| grep -i blackpill`. It must be `blackpill_f401cc` for the F401CCU6 chip. |
-| `Board does not define a usable 'led0' alias` build error | You're targeting a board without a `led0` alias — double-check `-b blackpill_f401cc`. |
-| `dfu-util: No DFU capable USB device found` | Re-do the BOOT0+NRST dance (Section 5, Step 2); verify with `lsusb \| grep -i dfu`. |
-| `west flash` fails with old dfu-util | Ubuntu's package may be < 0.8 — build dfu-util from source. |
-| Flash works but LED doesn't blink | Press NRST after flashing. Check you built for `blackpill_f401cc` (not `f401ce`/`f411ce`). |
-| `Permission denied` on USB | Fix udev rules: https://docs.zephyrproject.org/latest/develop/beyond-GSG.html#setting-udev-rules then `sudo udevadm control --reload-rules` and replug. |
-| Serial console shows nothing | USB-C is not UART — you must wire PA9/PA10 to a USB-TTL dongle, 115200 8N1. |
-| Weird build behavior after config edits | `west build -p always -b blackpill_f401cc .` (pristine). |
+| `west: command not found` | Activate the venv: `source ~/zephyrproject/.venv/bin/activate` |
+| Board not found | Run `west boards \| grep -i blackpill`; the name must be exact |
+| `led0` alias error | You built for the wrong board — use `-b blackpill_f401cc` |
+| `No DFU capable USB device found` | Repeat the BOOT0 + NRST steps |
+| `west flash` fails with old dfu-util | Install a newer `dfu-util` |
+| LED does not blink | Press NRST after flashing; confirm the board name |
+| Permission denied on USB | Fix udev rules and replug the board |
+| No serial output | USB-C is not UART — use a USB-TTL adapter on PA9/PA10 |
+| Strange build errors | Do a clean build: `west build -p always` |
 
 ---
 
-## 11. Cheat sheet
+## 13. Cheat sheet
 
 ```bash
-# one-time per terminal
+# every new terminal
 source ~/zephyrproject/.venv/bin/activate
 
-# create
-mkdir led_toggle && cd led_toggle && mkdir src boards
-# ... write CMakeLists.txt, prj.conf, boards/blackpill_f401cc.overlay, src/main.c ...
+# create the project
+mkdir led_toggle && cd led_toggle
+mkdir src
+# add CMakeLists.txt, prj.conf, src/main.c
 
 # build
 west build -b blackpill_f401cc .
-west build                        # incremental rebuild
-west build -p always              # pristine rebuild
+west build -p always -b blackpill_f401cc .   # clean build
 
-# flash (DFU: hold BOOT0 -> tap NRST -> release BOOT0)
+# flash (hold BOOT0, tap NRST, release BOOT0 first)
 west flash
 
-# serial console (optional, via USB-TTL on PA9/PA10)
+# optional serial console
 python -m serial.tools.miniterm /dev/ttyUSB0 115200
 ```
-
----
-
-*Zephyr v4.4.0-rc1 flow — Ubuntu host, SDK 1.0.0.*
