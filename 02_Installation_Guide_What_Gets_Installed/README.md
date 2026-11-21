@@ -160,8 +160,10 @@ cd ~/zephyrproject
 
 ### Test A — run in simulation (no hardware)
 
+From the workspace root (`~/zephyrproject`), the samples live inside `zephyr/`:
+
 ```bash
-west build -p always -b native_sim samples/hello_world
+west build -p always -b native_sim zephyr/samples/hello_world
 west build -t run
 ```
 
@@ -171,6 +173,19 @@ Expected output:
 *** Booting Zephyr OS ... ***
 Hello World! native_sim
 ```
+
+> **Where is the build?** `west build` puts the output in a `build/` folder
+> **in the directory where you run it** — here `~/zephyrproject/build/`.
+> It is not placed inside the sample folder. `west build -t run` reuses that
+> same `build/`, so run it from the same directory (or pass `-d <build_dir>`).
+>
+> ```text
+> ~/zephyrproject/build/
+> └── zephyr/
+>     ├── zephyr.elf
+>     ├── zephyr.bin
+>     └── zephyr.hex
+> ```
 
 ### Test B — real hardware
 
@@ -183,7 +198,7 @@ west boards | grep -i <part_of_board_name>
 Build and flash:
 
 ```bash
-west build -p always -b <board_name> samples/basic/blinky
+west build -p always -b <board_name> zephyr/samples/basic/blinky
 west flash
 ```
 
@@ -222,7 +237,7 @@ Default pins on the F401/F411 boards:
 Build an example:
 
 ```bash
-west build -p always -b blackpill_f401cc samples/basic/blinky
+west build -p always -b blackpill_f401cc zephyr/samples/basic/blinky
 ```
 
 Flash using the built-in DFU bootloader (no ST-Link needed):
@@ -354,7 +369,7 @@ directly. The driver handles the hardware details for you.
 | `find_package(Zephyr) not found` | Run `west zephyr-export` |
 | Strange build errors | Clean build: `west build -p always ...` |
 | Flash fails / permission denied | Install the missing tool or fix udev rules |
-| Blinky not supported on the board | Use `samples/hello_world` instead |
+| Blinky not supported on the board | Use `zephyr/samples/hello_world` instead |
 | `west update` is slow or huge | Use manifest groups to skip unused modules |
 
 ---
@@ -368,9 +383,12 @@ cd ~/zephyrproject
 west --version
 west update                    # update all projects
 west boards | grep <name>      # find a board
-west build -p always -b <board> <app>
-west build -t run              # run in simulation
+west build -p always -b <board> zephyr/samples/hello_world
+west build -t run              # run in simulation (same dir as build)
 west flash                     # flash the board
 west build -t menuconfig       # edit Kconfig
 west debug                     # start debugging
 ```
+
+> The build output always goes to `build/` in the folder where you run
+> `west build` (here `~/zephyrproject/build/`).
