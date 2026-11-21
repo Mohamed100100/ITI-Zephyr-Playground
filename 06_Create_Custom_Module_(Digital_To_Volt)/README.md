@@ -461,6 +461,6 @@ west build -t menuconfig   # Digital to Volt menu
 
 Related in this playground: `05_KConfig` (the whole configuration system),
 `04_Kconfig_vs_Devicetree(DTS)` (which half does what),
-`03_ Create_New_Project` (minimal app this builds on).
+`03_Create_New_Project` (minimal app this builds on).
 
 *Zephyr v4.4.0-rc1 — Ubuntu host — Black Pill blackpill_f401cc + native_sim.*

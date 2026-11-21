@@ -243,4 +243,4 @@ The LED should start blinking.
 - The same app can run on many boards because hardware is not hard-coded.
 
 Next: install Zephyr in `02_Installation_Guide_What_Gets_Installed`, then create
-your first project in `03_ Create_New_Project`.
+your first project in `03_Create_New_Project`.
