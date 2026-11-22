@@ -520,7 +520,7 @@ grep -n "LED_STRIP" build_<board>/zephyr/include/generated/zephyr/autoconf.h
 
 - [Create a New Zephyr Project](../03_Create_New_Project/README.md) — full
   project examples.
-- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+- [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
   — where to find overlay properties and how to write overlays.
 - [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
   — the general lifecycle for using any driver, subsystem, or module.

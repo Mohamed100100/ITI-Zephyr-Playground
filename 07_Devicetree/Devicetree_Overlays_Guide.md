@@ -2,7 +2,7 @@
 
 > Companion guide to [Create a New Zephyr Project](../03_Create_New_Project/README.md),
 > [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md),
-> and this folder's [Kconfig vs Devicetree guide](README.md).
+> and [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>).
 >
 > Use this when you need to **change hardware**: move an LED to another pin,
 > enable a UART, change an RGB color order, add an external LED, or disable a
@@ -638,7 +638,7 @@ grep CONFIG_GPIO build_app/zephyr/.config
 ## Related documents
 
 - [Create a New Zephyr Project](../03_Create_New_Project/README.md)
-- [Kconfig vs Devicetree](README.md)
+- [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>)
 - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
 - [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
 - [Kconfig deep dive](../05_KConfig/README.md)

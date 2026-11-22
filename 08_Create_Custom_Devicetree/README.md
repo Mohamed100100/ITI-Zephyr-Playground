@@ -17,7 +17,7 @@
 > **Companion guides:**
 > - [Devicetree deep dive](../07_Devicetree/README.md) — concepts, syntax,
 >   bindings, macros.
-> - [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+> - [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
 >   — where to find binding properties and how to write overlays.
 > - [Kconfig deep dive](../05_KConfig/README.md) — the configuration system.
 
@@ -418,7 +418,7 @@ west build -p always -b <board> -d build_app <app>
 
 - [Devicetree deep dive](../07_Devicetree/README.md) — concepts, syntax,
   bindings, macros.
-- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+- [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
   — where to find overlay properties and how to write overlays.
 - [Create a New Zephyr Project](../03_Create_New_Project/README.md) — full
   project examples.

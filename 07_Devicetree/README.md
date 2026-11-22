@@ -9,7 +9,7 @@
 > `08 Create Custom Devicetree`.
 >
 > **Companion guides:**
-> - [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+> - [Devicetree Overlays Guide](<Devicetree_Overlays_Guide.md>)
 >   — where to find binding properties and how to write overlays.
 > - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
 >   — how to find the right `CONFIG_...` option.
@@ -404,7 +404,7 @@ grep -n "led0\|external_led" build_app/zephyr/zephyr.dts
   project examples.
 - [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>) —
   side-by-side comparison.
-- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+- [Devicetree Overlays Guide](<Devicetree_Overlays_Guide.md>)
   — where to find overlay properties and how to write overlays.
 - [Kconfig deep dive](../05_KConfig/README.md) — the configuration system.
 - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)

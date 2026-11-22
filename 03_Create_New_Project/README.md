@@ -15,7 +15,7 @@ almost any board.
 > **Companion guides:**
 > - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
 >   — how to find Kconfig options and drivers for any hardware or software module.
-> - [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+> - [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
 >   — where to find overlay properties and how to write overlays.
 > - [Using Drivers and Software Modules](Using_Drivers_And_Software_Modules.md)
 >   — the general lifecycle for using any driver, subsystem, or module.
@@ -944,7 +944,7 @@ Section 3 works unchanged. If it has `rgb0` and `worldsemi,ws2812-*`, the
 ESP32-S3 code from Section 2 works with `DT_ALIAS(rgb0)`.
 
 > **Need to change a pin or add an external LED?**
-> See [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>).
+> See [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>).
 
 ---
 

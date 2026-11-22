@@ -2,7 +2,7 @@
 
 > Companion guide to [Create a New Zephyr Project](README.md),
 > [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md), and
-> [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>).
+> [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>).
 >
 > This guide explains the general lifecycle for using any Zephyr feature:
 > hardware drivers, subsystems, and software modules.
@@ -100,7 +100,7 @@ The hardware description may specify:
 
 **Software-only modules may not require devicetree configuration.**
 
-See [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+See [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
 for how to find binding properties and write overlays.
 
 ---
@@ -321,7 +321,7 @@ successfully.**
 - [Create a New Zephyr Project](README.md) — full project examples.
 - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
   — how to find Kconfig options and drivers.
-- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+- [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
   — where to find overlay properties and how to write overlays.
 - [Kconfig deep dive](../05_KConfig/README.md) — symbols, `depends on`,
   `select`, `default`, priority hierarchy.
