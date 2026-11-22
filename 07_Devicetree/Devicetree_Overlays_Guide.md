@@ -515,6 +515,168 @@ const struct device *uart = DEVICE_DT_GET(DT_NODELABEL(uart1));
 };
 ```
 
+### 7.8 Add vs modify: external button example (ESP32-style)
+
+Assumptions: ESP32-style examples using `gpio0`, with GPIO6 for the button so
+GPIO7 can remain your LED pin. Verify the controller label and pin availability
+for your selected board.
+
+#### Add a new external button
+
+Put this in `app.overlay`:
+
+```dts
+#include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+
+/ {
+    external_buttons {
+        compatible = "gpio-keys";
+
+        external_button: button_0 {
+            gpios = <&gpio0 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+            zephyr,code = <INPUT_KEY_0>;
+        };
+    };
+
+    aliases {
+        sw0 = &external_button;
+    };
+};
+```
+
+The `gpio-keys` binding describes buttons as children, each with a GPIO
+connection and an input-event code. Check your installed version’s binding for
+its requirements.
+
+| Part | Purpose |
+|---|---|
+| `external_buttons` | New parent node name |
+| `"gpio-keys"` | Identifies the button-group binding |
+| `external_button:` | Label for referencing the button |
+| `button_0` | Child node name |
+| `&gpio0 6` | GPIO controller and pin |
+| `GPIO_PULL_UP` | Requests an internal pull-up |
+| `GPIO_ACTIVE_LOW` | LOW means pressed |
+| `zephyr,code` | Input-event code associated with the button |
+| `sw0` | Alias pointing to your external button |
+
+For this pull-up, active-low arrangement, connect the switch between **GPIO6
+and GND**: pressing it pulls the input LOW.
+
+**If `sw0` already exists, this assignment redirects it to your external
+button.** Overlay properties override the corresponding existing properties.
+
+#### Modify an existing button node
+
+Suppose the board’s `.dts` already contains:
+
+```dts
+buttons {
+    compatible = "gpio-keys";
+
+    user_button: button_0 {
+        gpios = <&gpio0 0 GPIO_ACTIVE_LOW>;
+        zephyr,code = <INPUT_KEY_0>;
+    };
+};
+```
+
+To change that button’s connection to GPIO6, your **alternative `app.overlay`**
+needs only:
+
+```dts
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+&user_button {
+    gpios = <&gpio0 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+};
+```
+
+Here:
+
+- `&user_button` references the **existing label**.
+- `gpios` replaces the old connection.
+- The parent, child name, and `zephyr,code` remain unchanged.
+- No new button node is created.
+
+**The label must already exist in your board’s tree.** Do not copy
+`&user_button` unless you have verified that label.
+
+#### Remember
+
+| Your goal | Overlay pattern |
+|---|---|
+| Add new hardware | `/ { new_node { ... }; };` |
+| Change existing hardware | `&existing_label { ... };` |
+
+These examples are **alternatives**, not instructions to define two buttons on
+the same GPIO. After building, inspect `build/zephyr/zephyr.dts` to verify the
+resulting connection.
+
+### 7.9 Includes in overlays: `.dtsi` vs `.h`
+
+**Because Zephyr processes devicetree files with the C preprocessor first.**
+That allows `.dts` and `.overlay` files to use `#include` and constants defined
+with `#define` — even though devicetree is not C code.
+
+#### 1. Including a `.dtsi`: hardware definitions
+
+```dts
+#include <st/f4/stm32f401Xc.dtsi>
+```
+
+A `.dtsi` typically supplies **hardware nodes**, such as GPIO controllers,
+UARTs, and their register information. That is where labels such as `gpioa` or
+`usart1` can come from. Your overlay can then reference those existing nodes.
+
+#### 2. Including a `.h`: symbolic constants
+
+```dts
+#include <zephyr/dt-bindings/gpio/gpio.h>
+```
+
+This provides **constant definitions**, such as `GPIO_ACTIVE_LOW`, so you can
+write readable property values instead of numeric flags. Zephyr’s
+`dt-bindings` headers are intended for this purpose. For example:
+
+```dts
+gpios = <&gpio0 6 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+```
+
+During preprocessing, the constants are replaced with their numeric
+expressions. **The include does not enable a driver or call a function.**
+
+#### 3. These are different kinds of headers
+
+| Include | Where you use it | Purpose |
+|---|---|---|
+| `zephyr/dt-bindings/gpio/gpio.h` | Devicetree / overlay | GPIO constants |
+| `zephyr/drivers/gpio.h` | Application C code | GPIO API functions and structures |
+
+**Do not include the GPIO C API header in your overlay.** It contains C
+declarations, not devicetree definitions.
+
+#### The relationship
+
+```text
+.dtsi → provides existing hardware nodes
+.h    → provides constants used in properties
+overlay → adds or modifies those hardware nodes
+                   │
+                   ▼
+          Preprocessing and merging
+                   │
+                   ▼
+          Final devicetree information
+```
+
+Your board usually already includes its SoC `.dtsi`, so your overlay only needs
+**missing definitions and the constants it uses**.
+
+> **`.dtsi` describes hardware. A `dt-bindings/*.h` header gives readable
+> names to property values.**
+
 ---
 
 ## 8. Enable both sides: hardware and software
