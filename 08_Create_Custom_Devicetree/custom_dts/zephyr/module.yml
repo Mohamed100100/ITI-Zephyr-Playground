@@ -1,0 +1,6 @@
+name: power_switch
+build:
+  cmake: .
+  kconfig: Kconfig
+  settings:
+    dts_root: .

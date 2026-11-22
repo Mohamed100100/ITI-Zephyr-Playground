@@ -1,0 +1,16 @@
+menuconfig POWER_SWITCH
+    bool "Power switch helper"
+    default y
+    help
+      Enable the power-switch helper library.
+
+if POWER_SWITCH
+
+config POWER_SWITCH_LOG_LEVEL
+    int "Log level for power-switch helper"
+    default 3
+    range 0 4
+    help
+      0=NONE 1=ERR 2=WRN 3=INF 4=DBG.
+
+endif
