@@ -26,6 +26,8 @@
 4. [Core concepts](#4-core-concepts)
 5. [Syntax](#5-syntax)
 6. [How it reaches C code](#6-how-it-reaches-c-code)
+   - [Navigating parent, child, and grandchild nodes](#61-navigating-parent-child-and-grandchild-nodes)
+   - [Getting the object after selecting the node](#62-getting-the-object-after-selecting-the-node)
 7. [Bindings — the schema for a node](#7-bindings--the-schema-for-a-node)
 8. [Overlays — how you change hardware description](#8-overlays--how-you-change-hardware-description)
 9. [Kconfig and Devicetree together](#9-kconfig-and-devicetree-together)
@@ -218,6 +220,102 @@ int main(void)
     }
 }
 ```
+
+### 6.1 Navigating parent, child, and grandchild nodes
+
+Labels allow direct access. Paths and child navigation use **node names**, not
+labels.
+
+#### Parent → child
+
+```dts
+/ {
+    parent_label: parent {
+        child_label: child {
+            /* Properties */
+        };
+    };
+};
+```
+
+Select the child using any one of these:
+
+```c
+/* Directly through the child's label */
+#define CHILD_NODE DT_NODELABEL(child_label)
+
+/* Through the full path of node names */
+#define CHILD_NODE DT_PATH(parent, child)
+
+/* Through the parent's label and child's name */
+#define CHILD_NODE DT_CHILD(DT_NODELABEL(parent_label), child)
+```
+
+#### Parent → child → grandchild
+
+```dts
+/ {
+    parent_label: parent {
+        child_label: child {
+            grandchild_label: grandchild {
+                /* Properties */
+            };
+        };
+    };
+};
+```
+
+Select the grandchild using any one of these:
+
+```c
+/* Directly through the grandchild's label */
+#define TARGET_NODE DT_NODELABEL(grandchild_label)
+
+/* Through the full path of node names */
+#define TARGET_NODE DT_PATH(parent, child, grandchild)
+
+/* Through the child's label and grandchild's name */
+#define TARGET_NODE DT_CHILD(DT_NODELABEL(child_label), grandchild)
+
+/* Navigate from the parent, one level at a time */
+#define PARENT_NODE DT_NODELABEL(parent_label)
+#define CHILD_NODE  DT_CHILD(PARENT_NODE, child)
+#define TARGET_NODE DT_CHILD(CHILD_NODE, grandchild)
+```
+
+**These are alternatives: choose one approach rather than defining the same macro
+multiple times.**
+
+### 6.2 Getting the object after selecting the node
+
+A node identifier is not itself a hardware object. Use the appropriate macro:
+
+```c
+/* If the selected node has a driver-backed device */
+const struct device *dev = DEVICE_DT_GET(TARGET_NODE);
+```
+
+Or:
+
+```c
+/* If the selected node has a valid gpios property */
+static const struct gpio_dt_spec pin =
+    GPIO_DT_SPEC_GET(TARGET_NODE, gpios);
+```
+
+These tree examples illustrate navigation only. Real nodes must follow their
+bindings, and **not every node has a device object or GPIO property**.
+
+### 6.3 Summary
+
+| Access method | What you provide |
+|---|---|
+| `DT_NODELABEL(label)` | The target’s label |
+| `DT_PATH(parent, child, ...)` | Node names from the root |
+| `DT_CHILD(parent_id, child)` | Parent node identifier and immediate child’s name |
+
+> **Select the node → obtain its device or specification → check readiness →
+> configure and use it.**
 
 ---
 
