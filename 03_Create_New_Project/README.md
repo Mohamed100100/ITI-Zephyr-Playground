@@ -19,6 +19,10 @@ almost any board.
 >   — where to find overlay properties and how to write overlays.
 > - [Using Drivers and Software Modules](Using_Drivers_And_Software_Modules.md)
 >   — the general lifecycle for using any driver, subsystem, or module.
+> - [Devicetree deep dive](../07_Devicetree/README.md) — concepts, syntax,
+>   bindings, macros.
+> - [Create a Custom Devicetree](../08_Create_Custom_Devicetree/README.md) —
+>   define your own binding and hardware description.
 >
 > **Learning path:** `03 Create Project` → `04 Kconfig vs Devicetree` →
 > `05 Kconfig deep dive` → `06 Custom Module`.

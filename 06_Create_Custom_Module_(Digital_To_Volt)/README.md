@@ -475,5 +475,9 @@ west build -t menuconfig   # Digital to Volt menu
   — where to find overlay properties and how to write overlays.
 - [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
   — the general lifecycle for using any driver, subsystem, or module.
+- [Devicetree deep dive](../07_Devicetree/README.md) — concepts, syntax,
+  bindings, macros.
+- [Create a Custom Devicetree](../08_Create_Custom_Devicetree/README.md) —
+  define your own binding and hardware description.
 
 *Zephyr v4.4.0-rc1 — Ubuntu host — Black Pill blackpill_f401cc + native_sim.*

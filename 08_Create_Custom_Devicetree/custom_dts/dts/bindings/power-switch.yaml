@@ -1,0 +1,22 @@
+# Copyright (c) 2026 ITI Zephyr Playground
+# SPDX-License-Identifier: Apache-2.0
+
+description: GPIO pin to switch a power output on or off
+
+compatible: "power-switch"
+
+properties:
+  gpios:
+    type: phandle-array
+    required: true
+    description: |
+      The GPIO connected to the gate driver for the MOSFET / load switch.
+
+examples:
+  - |
+    / {
+      load_switch: load_switch {
+        compatible = "power-switch";
+        gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
+      };
+    };

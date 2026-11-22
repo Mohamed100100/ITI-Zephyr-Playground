@@ -1,6 +1,7 @@
 # ITI-Zephyr-Playground
 
-Hands-on Zephyr RTOS course: from zero to a custom out-of-tree module on real hardware.
+Hands-on Zephyr RTOS course: from zero to a custom out-of-tree module and a
+custom Devicetree on real hardware.
 
 ## Learning path
 
@@ -12,5 +13,9 @@ Hands-on Zephyr RTOS course: from zero to a custom out-of-tree module on real ha
 | 04 | `04_Kconfig_vs_Devicetree(DTS)` | Kconfig (what code) vs Devicetree (which hardware), how they meet | [Devicetree Overlays Guide](<04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>) |
 | 05 | `05_KConfig` | Kconfig deep dive: symbols, `depends on`/`select`/`default`, priority hierarchy, `menuconfig`, `.config` → `zephyr/autoconf.h`, demo app | [Finding Features and Kconfig](05_KConfig/Finding_Features_And_Kconfig.md) |
 | 06 | `06_Create_Custom_Module_(Digital_To_Volt)` | Custom module end-to-end: `digital_to_volt_Module/` (`module.yml`, `Kconfig`, `CMakeLists`, `digital_to_volt.h/.c`) + `app/` demo (simulate on `native_sim`, real ADC on PA1 + LED threshold) | — |
+| 07 | `07_Devicetree` | Devicetree deep dive: concepts, syntax, bindings, macros, overlays, generated files | [Devicetree Overlays Guide](<04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>) |
+| 08 | `08_Create_Custom_Devicetree` | Create a custom binding (`power-switch`) and use it — Case A (auto-discovered in `app/dts/bindings/`) and Case B (separate DTS root, inside or outside Zephyr) | — |
 
-Suggested order: **01 → 02 → 03 → 04 → 05 → 06**.
+Suggested order: **01 → 02 → 03 → 04 → 05 → 07 → 06 / 08**.
+
+> `06` and `08` are independent advanced topics; do them in either order after `07`.

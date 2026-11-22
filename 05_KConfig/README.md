@@ -665,3 +665,5 @@ config MY_FEATURE
 - [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
 - [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
 - [Custom Module](<../06_Create_Custom_Module_(Digital_To_Volt)/README.md>)
+- [Devicetree deep dive](../07_Devicetree/README.md)
+- [Create a Custom Devicetree](../08_Create_Custom_Devicetree/README.md)

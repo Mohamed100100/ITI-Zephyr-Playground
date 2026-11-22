@@ -1,0 +1,12 @@
+/*
+ * Copyright (c) 2026 ITI Zephyr Playground
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/ {
+	load_switch: load_switch {
+		compatible = "power-switch";
+		/* Black Pill: use PA5 for demonstration */
+		gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
+	};
+};
