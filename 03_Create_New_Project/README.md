@@ -12,6 +12,17 @@ The important part is not the two examples themselves — it is the **recipe** i
 Section 1. Once you understand the recipe, you can create a blink project for
 almost any board.
 
+> **Companion guides:**
+> - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+>   — how to find Kconfig options and drivers for any hardware or software module.
+> - [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+>   — where to find overlay properties and how to write overlays.
+> - [Using Drivers and Software Modules](Using_Drivers_And_Software_Modules.md)
+>   — the general lifecycle for using any driver, subsystem, or module.
+>
+> **Learning path:** `03 Create Project` → `04 Kconfig vs Devicetree` →
+> `05 Kconfig deep dive` → `06 Custom Module`.
+
 ---
 
 ## Table of Contents
@@ -843,240 +854,93 @@ After flashing, press **NRST** once. The LED blinks once per second.
 
 ## 4. How to find Kconfig names and drivers
 
-This section answers the most common beginner question:
+The short version: **the Kconfig symbol usually matches the subsystem name**,
+and you can confirm it with `menuconfig` or a source search.
 
-> "How do I know which `CONFIG_...` line to write?"
-
-### 4.1 Kconfig naming pattern
-
-Every Kconfig symbol:
-
-- starts with `CONFIG_`
-- is written in `UPPER_CASE`
-- usually matches the subsystem or driver name
-
-Examples:
-
-| Feature | Kconfig symbol |
+| Feature | Typical Kconfig symbol |
 |---|---|
-| GPIO subsystem | `CONFIG_GPIO` |
-| LED strip subsystem | `CONFIG_LED_STRIP` |
-| PWM subsystem | `CONFIG_PWM` |
-| I2C subsystem | `CONFIG_I2C` |
-| SPI subsystem | `CONFIG_SPI` |
+| GPIO | `CONFIG_GPIO` |
+| LED strip | `CONFIG_LED_STRIP` |
+| PWM | `CONFIG_PWM` |
+| I2C | `CONFIG_I2C` |
+| SPI | `CONFIG_SPI` |
 | UART/serial | `CONFIG_SERIAL` |
 | Logging | `CONFIG_LOG` |
-| Console output | `CONFIG_CONSOLE` |
+| Console | `CONFIG_CONSOLE` |
 
-### 4.2 Three ways to find the right symbol
+Three quick ways to confirm a symbol:
 
-**Way 1 — Search the source:**
+1. **Search the source**
+   ```bash
+   grep -rn "config LED_STRIP" zephyr/drivers/led_strip/Kconfig
+   ```
+2. **Search menuconfig**
+   ```bash
+   west build -t menuconfig -d build_esp32s3
+   ```
+   Press `/`, type the feature name, then Enter.
+3. **Search the generated config after a build**
+   ```bash
+   grep CONFIG_LED_STRIP build_esp32s3/zephyr/.config
+   ```
 
-```bash
-grep -rn "config LED_STRIP" zephyr/drivers/led_strip/Kconfig
-grep -rn "config GPIO"      zephyr/drivers/gpio/Kconfig
-grep -rn "config PWM"       zephyr/drivers/pwm/Kconfig
-```
-
-**Way 2 — Use `menuconfig`:**
-
-```bash
-west build -t menuconfig -d build_esp32s3
-```
-
-Press `/`, type a keyword such as `LED_STRIP`, and press Enter.
-
-**Way 3 — Use `guiconfig`:**
-
-```bash
-west build -t guiconfig -d build_esp32s3
-```
-
-### 4.3 How Devicetree enables drivers automatically
-
-Zephyr generates a Kconfig symbol for every `compatible` string in the
-Devicetree.
-
-Example: the board has
-
-```dts
-compatible = "worldsemi,ws2812-i2s";
-```
-
-Zephyr generates:
-
-```
-DT_HAS_WORLDSEMI_WS2812_I2S_ENABLED
-```
-
-The driver Kconfig uses it:
-
-```kconfig
-config WS2812_STRIP_I2S
-    bool "WS2812 LED strip I2S driver"
-    default y
-    depends on DT_HAS_WORLDSEMI_WS2812_I2S_ENABLED
-```
-
-Because the node exists and is enabled, the driver becomes available
-automatically. That is why you usually only enable the **subsystem API**
+Devicetree often enables the driver automatically: a node with
+`compatible = "worldsemi,ws2812-i2s"` generates
+`DT_HAS_WORLDSEMI_WS2812_I2S_ENABLED`, which the driver's Kconfig uses as a
+dependency. That is why you usually only enable the subsystem API
 (`CONFIG_LED_STRIP=y`, `CONFIG_GPIO=y`, `CONFIG_PWM=y`).
 
-### 4.4 Check what was actually enabled
-
-After a build:
-
-```bash
-# See the final configuration
-grep CONFIG_LED_STRIP build_esp32s3/zephyr/.config
-grep CONFIG_WS2812    build_esp32s3/zephyr/.config
-
-# See the final merged Devicetree
-grep -n "rgb" build_esp32s3/zephyr/zephyr.dts
-
-# See the generated Kconfig header used by C code
-grep -n "LED_STRIP" build_esp32s3/zephyr/include/generated/zephyr/autoconf.h
-```
-
-### 4.5 Find the driver for a `compatible` string
-
-If you see a new `compatible` string and do not know which driver handles it:
-
-```bash
-# 1. Find the binding
-find zephyr/dts/bindings -iname "*<compatible>*"
-
-# 2. Search the drivers
-grep -rn "<compatible>" zephyr/drivers
-
-# 3. Search the Kconfig
-grep -rn "DT_HAS_.*<COMPATIBLE>.*ENABLED" zephyr/drivers
-```
-
-Example:
-
-```bash
-grep -rn "worldsemi,ws2812-i2s" zephyr/drivers
-```
-
-This shows the driver source and its Kconfig dependency.
-
-### 4.6 The most useful inspection commands
-
-```bash
-# List all boards
-west boards | grep -i <name>
-
-# Show the final Devicetree
-grep -n "led0\|rgb0\|ws2812\|gpio-leds" build/zephyr/zephyr.dts
-
-# Show the final config
-grep CONFIG_ build/zephyr/.config | less
-
-# Interactive config
-west build -t menuconfig -d build
-
-# Graphical config
-west build -t guiconfig -d build
-```
+> **Full guide:** [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+> covers the three configuration layers, four search methods, and how to trace a
+> `compatible` string to its driver.
 
 ---
 
 ## 5. How to adapt to a new board
 
-Use this checklist every time you start a new board.
+Use this checklist every time:
 
-### Checklist
-
-1. **Find the board name**
+1. **Find the board target**
    ```bash
    west boards | grep -i <name>
    ```
-
 2. **Open the board `.dts`**
    ```
    zephyr/boards/<vendor>/<board>/<board>.dts
    ```
+3. **Find the LED in `aliases` and `leds`**
+   - `led0` → GPIO LED
+   - `rgb0` or `led-strip` → addressable RGB LED
+   - `pwm-leds` → PWM LED
+4. **Pick the API from the `compatible` string**
 
-3. **Find the LED**
-   - Look in `aliases { ... }` for `led0`, `rgb0`, `led-strip`, etc.
-   - Look for `compatible = "..."`.
-   - Look for `gpios`, `chain-length`, `color-mapping`.
-
-4. **Choose the API**
-
-   | If you see | Use |
-   |---|---|
-   | `gpio-leds` + `led0` | GPIO API (`CONFIG_GPIO=y`) |
-   | `worldsemi,ws2812-*` + `rgb0`/`led-strip` | LED strip API (`CONFIG_LED_STRIP=y`) |
-   | `pwm-leds` | PWM API (`CONFIG_PWM=y`) |
+   | `compatible` | API | Kconfig |
+   |---|---|---|
+   | `gpio-leds` | GPIO | `CONFIG_GPIO=y` |
+   | `worldsemi,ws2812-*` | LED strip | `CONFIG_LED_STRIP=y` |
+   | `pwm-leds` | PWM | `CONFIG_PWM=y` |
 
 5. **Write `prj.conf`** with the matching `CONFIG_...=y`.
-
-6. **Write `main.c`** using `DT_ALIAS(...)` and the matching API.
-
-7. **Build** from the Zephyr workspace:
+6. **Write `main.c`** with `DT_ALIAS(...)` and the matching API.
+7. **Build from the Zephyr workspace**
    ```bash
    west build -p always -b <board> -d build_<name> <path-to-app>
    ```
-
-8. **Flash and monitor**:
+8. **Flash and monitor**
    ```bash
    west flash -d build_<name>
    ```
-
-9. **If something is missing**, check:
+9. **If something is missing**, inspect:
    - `build_<name>/zephyr/zephyr.dts`
    - `build_<name>/zephyr/.config`
    - `west build -t menuconfig -d build_<name>`
 
-### Example: a board with a plain LED
+If the board has a plain `led0` and `gpio-leds`, the Black Pill code from
+Section 3 works unchanged. If it has `rgb0` and `worldsemi,ws2812-*`, the
+ESP32-S3 code from Section 2 works with `DT_ALIAS(rgb0)`.
 
-If the board `.dts` has:
-
-```dts
-aliases {
-    led0 = &user_led;
-};
-
-leds {
-    compatible = "gpio-leds";
-    user_led: led {
-        gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
-    };
-};
-```
-
-Then you need:
-
-```conf
-CONFIG_GPIO=y
-```
-
-and the Black Pill code from Section 3 works unchanged.
-
-### Example: a board with an RGB LED
-
-If the board `.dts` has:
-
-```dts
-aliases {
-    rgb0 = &rgb_led;
-};
-
-rgb_led: ws2812@0 {
-    compatible = "worldsemi,ws2812-spi";
-    chain-length = <1>;
-};
-```
-
-Then you need:
-
-```conf
-CONFIG_LED_STRIP=y
-```
-
-and the ESP32-S3 code from Section 2 works with `DT_ALIAS(rgb0)`.
+> **Need to change a pin or add an external LED?**
+> See [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>).
 
 ---
 
@@ -1165,20 +1029,13 @@ blackpill_blinky/boards/blackpill_f401cc.overlay
 Content:
 
 ```dts
-/ {
-    aliases {
-        led0 = &my_led;
-    };
-
-    my_led: my-led {
-        compatible = "gpio-leds";
-        gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
-        label = "My LED";
-    };
+&user_led {
+    gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
 };
 ```
 
-Rebuild. `DT_ALIAS(led0)` now points to PC14. `main.c` does not change.
+This overrides the board's `user_led` pin. `led0` still points to it, so
+`DT_ALIAS(led0)` now controls PC14. `main.c` does not change.
 
 ---
 

@@ -32,6 +32,9 @@
 >
 > Rule of thumb: one project → keep it next to the app (outside). Shared by many
 > projects → put one copy in the workspace (inside) and reuse the path.
+>
+> **Learning path:** `03 Create Project` → `04 Kconfig vs Devicetree` →
+> `05 Kconfig deep dive` → **`06 Custom Module`**.
 
 ---
 
@@ -221,7 +224,7 @@ How it works:
 * The function takes **only the raw ADC code**. Vref and resolution come
   straight from Kconfig (`CONFIG_DIGITAL_TO_VOLT_VREF_MV`,
   `CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS`) — they are `#define`s baked in at
-  compile time via `autoconf.h` (force-included by the build, no include needed),
+  compile time via `zephyr/autoconf.h` (force-included by the build, no include needed),
   so no extra arguments are required.
 * `max_value` is `2^resolution - 1` (4095 at 12-bit) — the full-scale code, so
   `max code -> exactly Vref`.
@@ -259,7 +262,7 @@ CONFIG_DIGITAL_TO_VOLT_RESOLUTION_BITS=12
 * First block: Zephyr subsystems (GPIO for LED, ADC for real reads, LOG for output).
 * Second block: module options — Vref must match your board's supply (3300 for the
   Black Pill), resolution must match the ADC channel's `zephyr,resolution` in the overlay.
-* Verify after a build: `cat build/.config | grep DIGITAL_TO_VOLT`, `cat build/zephyr/include/generated/autoconf.h | grep DIGITAL_TO_VOLT`.
+* Verify after a build: `cat build/.config | grep DIGITAL_TO_VOLT`, `cat build/zephyr/include/generated/zephyr/zephyr/autoconf.h | grep DIGITAL_TO_VOLT`.
 
 ### 4.3 `app/boards/blackpill_f401cc.overlay` — Devicetree (which ADC pin)
 
@@ -343,7 +346,7 @@ Inspect the resolved config:
 
 ```bash
 grep DIGITAL_TO_VOLT build/.config
-grep DIGITAL_TO_VOLT build/zephyr/include/generated/autoconf.h
+grep DIGITAL_TO_VOLT build/zephyr/include/generated/zephyr/zephyr/autoconf.h
 ```
 
 ---
@@ -394,10 +397,10 @@ it follows `VREF_MV` automatically; change Vref in menuconfig, rebuild, reflash.
 
 ```
 prj.conf (CONFIG_ADC=y, CONFIG_DIGITAL_TO_VOLT_*) ──┐
-digital_to_volt_Module/Kconfig (defines the 3 symbols)           ├─► kconfiglib ─► build/.config ─► autoconf.h
+digital_to_volt_Module/Kconfig (defines the 3 symbols)           ├─► kconfiglib ─► build/.config ─► zephyr/autoconf.h
 board defconfig                                       │                    (#define CONFIG_DIGITAL_TO_VOLT_VREF_MV 3300 ...)
                                                       │
-boards/blackpill_f401cc.overlay ─────────────────────┼─► dtc/gen_defines ─► devicetree_generated.h
+boards/blackpill_f401cc.overlay ─────────────────────┼─► dtc/gen_defines ─► zephyr/devicetree_generated.h
 board .dts + SoC .dtsi                               │                    (DT_ALIAS(led0) -> &gpioc 13 ...)
                                                      ▼
 digital_to_volt_Module/CMakeLists.txt (if(CONFIG_DIGITAL_TO_VOLT)) ─► libdigital_to_volt.a
@@ -454,13 +457,23 @@ west flash   # DFU mode first: hold BOOT0, tap NRST, release BOOT0
 
 # inspect
 grep DIGITAL_TO_VOLT build/.config
-grep DIGITAL_TO_VOLT build/zephyr/include/generated/autoconf.h
+grep DIGITAL_TO_VOLT build/zephyr/include/generated/zephyr/zephyr/autoconf.h
 cat build/zephyr/zephyr.dts | grep -A3 io-channels
 west build -t menuconfig   # Digital to Volt menu
 ```
 
-Related in this playground: `05_KConfig` (the whole configuration system),
-`04_Kconfig_vs_Devicetree(DTS)` (which half does what),
-`03_Create_New_Project` (minimal app this builds on).
+## Related documents
+
+- [Create a New Zephyr Project](../03_Create_New_Project/README.md) — minimal app
+  this module builds on.
+- [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>) — which
+  half does what.
+- [Kconfig deep dive](../05_KConfig/README.md) — the whole configuration system.
+- [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+  — how to find the right `CONFIG_...` option.
+- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+  — where to find overlay properties and how to write overlays.
+- [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
+  — the general lifecycle for using any driver, subsystem, or module.
 
 *Zephyr v4.4.0-rc1 — Ubuntu host — Black Pill blackpill_f401cc + native_sim.*

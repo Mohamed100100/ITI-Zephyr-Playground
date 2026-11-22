@@ -5,6 +5,12 @@
 > is wired** (pins, buses, addresses). They are two separate systems that meet in
 > the build — Kconfig turns features on/off, Devicetree tells the enabled drivers
 > which pins and registers to use.
+>
+> **Learning path:** `03 Create Project` → **`04 Kconfig vs Devicetree`** →
+> `05 Kconfig deep dive` → `06 Custom Module`.
+>
+> **Companion guide:** [Devicetree Overlays Guide](Devicetree_Overlays_Guide.md)
+> — where to find binding properties and how to write overlays.
 
 ---
 
@@ -31,7 +37,7 @@
 | Answers | "Is this feature compiled in?" | "Where is the hardware? Which pin?" |
 | Domain | **Software** configuration | **Hardware** description |
 | Decided | At **build time** | At **build time** (but *describes* hardware) |
-| Output | `CONFIG_XXX=y` → `#define` in `autoconf.h` | C macros like `DT_ALIAS(led0)` → `devicetree_generated.h` |
+| Output | `CONFIG_XXX=y` → `#define` in `zephyr/autoconf.h` | C macros like `DT_ALIAS(led0)` → `zephyr/devicetree_generated.h` |
 | Controlled by | `prj.conf`, board defconfig, overlays | board `.dts`, `app.overlay` |
 | Keyword examples | `config`, `bool`, `depends on`, `select` | `compatible`, `reg`, `gpios`, `status` |
 | Typical user edit | `prj.conf` (enable a driver) | `app.overlay` (change a pin) |
@@ -76,7 +82,7 @@ drivers combine.
 | **File syntax** | Kconfig language (`config FOO`, `bool "..."`, `depends on`) | Devicetree source (`.dts` / `.dtsi`) — node/property tree |
 | **Schema** | `Kconfig` files (define symbols) | **Bindings** (`*.yaml` in `zephyr/dts/bindings/`) validate properties |
 | **Inputs** | Zephyr Kconfig files, board `defconfig`, `prj.conf`, extra `.conf` overlays | board `.dts` + included `.dtsi`, SoC files, `app.overlay`, `*.overlay` |
-| **Resolved into** | `build/.config` → `build/zephyr/include/generated/autoconf.h` | `build/zephyr/include/generated/devicetree_generated.h` (+ `zephyr.dts`) |
+| **Resolved into** | `build/.config` → `build/zephyr/include/generated/zephyr/zephyr/autoconf.h` | `build/zephyr/include/generated/zephyr/zephyr/devicetree_generated.h` (+ `zephyr.dts`) |
 | **In C code** | `#if defined(CONFIG_GPIO)` | `GPIO_DT_SPEC_GET(DT_ALIAS(led0), gpios)` |
 | **Value types** | bool, int, hex, string, choice | integers, strings, arrays, phandles (`&gpioc`), cell tuples (`<...>`) |
 | **Granularity** | Feature/subsystem level ("enable UART console") | Instance level ("UART1 on PA9/PA10", "this sensor on I2C1 @ 0x40") |
@@ -118,7 +124,7 @@ Zephyr Kconfig files  ← subsystem defaults (the `default` lines)
 ### 4.3 How it reaches C code
 
 ```
-Kconfig files ──► kconfiglib ──► build/.config ──► autoconf.h
+Kconfig files ──► kconfiglib ──► build/.config ──► zephyr/autoconf.h
                                                        │
                                     #define CONFIG_GPIO 1  ◄── #if defined(CONFIG_GPIO)
 ```
@@ -132,6 +138,9 @@ Kconfig files ──► kconfiglib ──► build/.config ──► autoconf.h
 - `CONFIG_SERIAL=y`, `CONFIG_CONSOLE=y` — console plumbing
 - `CONFIG_BOOT_BANNER=y` — the "*** Booting Zephyr OS ***" line
 - Your own app options: `config APP_ENABLE_BACKGROUND_WORK ...` (see the Kconfig README)
+
+> **Deep dive:** [Kconfig deep dive](../05_KConfig/README.md) — every keyword,
+> priority hierarchy, `menuconfig`, `.config` → `zephyr/autoconf.h`, and a full demo.
 
 ---
 
@@ -149,14 +158,20 @@ Board file (`zephyr/boards/weact/blackpill_f401cc/blackpill_f401cc.dts`, excerpt
         zephyr,console = &usart1;  /* where printk/log output goes */
     };
 
-    user_led: user-led {
-        compatible = "gpio-leds";
-        gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;   /* PC13, active-low */
+    leds {
+        compatible = "gpio-leds";  /* parent binding */
+
+        user_led: led {
+            gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;   /* PC13, active-low */
+        };
     };
 
-    user_button: user-button {
-        compatible = "gpio-keys";
-        gpios = <&gpioa 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+    gpio_keys {
+        compatible = "gpio-keys";  /* parent binding */
+
+        user_button: button {
+            gpios = <&gpioa 0 (GPIO_PULL_UP | GPIO_ACTIVE_LOW)>;
+        };
     };
 };
 
@@ -186,16 +201,20 @@ Key concepts:
 
 ```dts
 / {
+    leds {
+        my_led: led_1 {
+            gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;   /* move LED to PC14 */
+        };
+    };
+
     aliases {
         led0 = &my_led;            /* redirect led0 to my pin */
     };
-
-    my_led: my-led {
-        compatible = "gpio-leds";
-        gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;   /* move LED to PC14 */
-    };
 };
 ```
+
+The board already has a `leds` node, so this **merges** into it. If the board has
+no `leds` node, add `compatible = "gpio-leds";` inside it.
 
 Same mechanism as Kconfig overlays (`extra.conf`) — your changes sit on top of the
 board's description and win.
@@ -203,7 +222,7 @@ board's description and win.
 ### 5.3 How it reaches C code
 
 ```
-.dts + .dtsi + app.overlay ──► dtc/gen_defines.py ──► devicetree_generated.h
+.dts + .dtsi + app.overlay ──► dtc/gen_defines.py ──► zephyr/devicetree_generated.h
                                                              │
             DT_ALIAS(led0) ──► node id ──► GPIO_DT_SPEC_GET ──► { .port, .pin=13, .dt_flags=ACTIVE_LOW }
 ```
@@ -254,10 +273,16 @@ systems at work:
 ### From Devicetree (board file, already provided)
 
 ```dts
-aliases { led0 = &user_led; };
-user_led: user-led {
-    compatible = "gpio-leds";
-    gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
+/ {
+    aliases { led0 = &user_led; };
+
+    leds {
+        compatible = "gpio-leds";
+
+        user_led: led {
+            gpios = <&gpioc 13 GPIO_ACTIVE_LOW>;
+        };
+    };
 };
 ```
 
@@ -289,8 +314,15 @@ int main(void)
 
 ### Exercise: change the pin (Devicetree job)
 
-Add `app.overlay`: `gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;` → rebuild → LED moves to PC14.
-`main.c` untouched. **No Kconfig involved.**
+Add `app.overlay`:
+
+```dts
+&user_led {
+    gpios = <&gpioc 14 GPIO_ACTIVE_LOW>;
+};
+```
+
+Rebuild → the LED moves to PC14. `main.c` is untouched. **No Kconfig involved.**
 
 ### Exercise: add a second feature (Kconfig job)
 
@@ -356,20 +388,20 @@ Ask yourself:
 | `zephyr/boards/<v>/<b>/<b>_defconfig` | Kconfig | board defaults |
 | `prj.conf` | Kconfig | your app's settings |
 | `extra.conf` via `OVERLAY_CONFIG` | Kconfig | optional override layer |
-| `build/.config`, `build/zephyr/include/generated/autoconf.h` | Kconfig | resolved output |
+| `build/.config`, `build/zephyr/include/generated/zephyr/zephyr/autoconf.h` | Kconfig | resolved output |
 | `zephyr/dts/arm/.../*.dtsi` | Devicetree | SoC peripheral descriptions |
 | `zephyr/dts/bindings/**/*.yaml` | Devicetree | property schemas per `compatible` |
 | `zephyr/boards/<v>/<b>/<b>.dts` | Devicetree | board wiring + aliases |
 | `app.overlay` / `*.overlay` | Devicetree | your overrides |
-| `build/zephyr/zephyr.dts`, `build/zephyr/include/generated/devicetree_generated.h` | Devicetree | resolved output |
+| `build/zephyr/zephyr.dts`, `build/zephyr/include/generated/zephyr/zephyr/devicetree_generated.h` | Devicetree | resolved output |
 
 ---
 
 ## 11. Cheat sheet
 
 ```
-KCONFIG  = software:  WHAT to compile     → prj.conf        → autoconf.h      → #if defined(CONFIG_X)
-DEVICETREE = hardware: WHERE it is wired   → app.overlay     → devicetree_generated.h → DT_ALIAS(...)/GPIO_DT_SPEC_GET
+KCONFIG  = software:  WHAT to compile     → prj.conf        → zephyr/autoconf.h      → #if defined(CONFIG_X)
+DEVICETREE = hardware: WHERE it is wired   → app.overlay     → zephyr/devicetree_generated.h → DT_ALIAS(...)/GPIO_DT_SPEC_GET
 
 Dependency rule:  node (DTS) + driver (Kconfig)  →  working device
 Wrong-pin fix?        → Devicetree overlay
@@ -383,5 +415,11 @@ cat build/zephyr/zephyr.dts  # inspect the fully merged Devicetree
 
 ---
 
-*Related docs: "Zephyr Kconfig — Complete Guide" and "Zephyr Project from Scratch —
-Black Pill LED Toggle" in this series.*
+## Related documents
+
+- [Create a New Zephyr Project](../03_Create_New_Project/README.md)
+- [Kconfig deep dive](../05_KConfig/README.md)
+- [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+- [Devicetree Overlays Guide](Devicetree_Overlays_Guide.md)
+- [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
+- [Custom Module](<../06_Create_Custom_Module_(Digital_To_Volt)/README.md>)

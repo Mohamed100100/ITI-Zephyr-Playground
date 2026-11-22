@@ -1,9 +1,15 @@
 # Zephyr Kconfig — Complete Guide to Build-Time Configuration
 
-> **Scope:** This README covers **Part 1 of the lesson — Kconfig**, the
-> configuration system Zephyr uses to decide *which features are compiled into
-> your firmware and which are not*. Part 2 (Device Tree — hardware description)
-> is out of scope here.
+> **Scope:** This is the **Kconfig deep dive**: the configuration system Zephyr
+> uses to decide *which features are compiled into your firmware*. For the
+> side-by-side comparison with Devicetree, see
+> [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>).
+>
+> **Learning path:** `03 Create Project` → `04 Kconfig vs Devicetree` →
+> **`05 Kconfig deep dive`** → `06 Custom Module`.
+>
+> **Companion guide:** [Finding Features and Kconfig](Finding_Features_And_Kconfig.md)
+> — how to find the right `CONFIG_...` option for a feature.
 >
 > **The big idea:** instead of hard-encoding features or relying on run-time
 > decisions, Zephyr's scalable configuration system gives you full control and
@@ -314,7 +320,7 @@ Understanding this pipeline explains *everything* about Kconfig:
   Kconfig parser (kconfiglib)                       │
         │                                           ▼
         │                              ┌─────────────────────────┐
-        │                              │ autoconf.h              │
+        │                              │ zephyr/autoconf.h              │
         └─────────────────────────────▶│ (generated header)      │
                                        │ #define CONFIG_APP_...  │
                                        └───────────┬─────────────┘
@@ -333,7 +339,7 @@ Understanding this pipeline explains *everything* about Kconfig:
 2. All **value assignments** are merged according to the priority hierarchy
    (Section 5). Dependencies are checked; invalid assignments produce warnings.
 3. The result is written to **`build/.config`**.
-4. A header generator turns `.config` into **`build/zephyr/include/generated/autoconf.h`** —
+4. A header generator turns `.config` into **`build/zephyr/include/generated/zephyr/zephyr/autoconf.h`** —
    every `CONFIG_XXX=y` becomes `#define CONFIG_XXX 1`.
 5. Your C code tests these macros with `#if defined(CONFIG_XXX)`. The
    preprocessor includes or removes code **before compilation** — so disabled
@@ -364,7 +370,7 @@ kconfig_demo/
 3. Create `src/main.c` using `#if defined(CONFIG_...)` guards.
 4. Fill `prj.conf` with default option values.
 5. Build, flash, and observe which features are enabled.
-6. Inspect the active configuration (`.config` / `autoconf.h`) to understand
+6. Inspect the active configuration (`.config` / `zephyr/autoconf.h`) to understand
    what is actually being compiled into the firmware.
 7. Modify options via `menuconfig`, rebuild, and observe the behavior change —
    **without touching the source code**.
@@ -489,7 +495,7 @@ Running background task - debug mode
 ... (every 5 seconds)
 ```
 
-### 8.8 Proof that it works at build time: `.config` and `autoconf.h`
+### 8.8 Proof that it works at build time: `.config` and `zephyr/autoconf.h`
 
 After building, inspect the generated files in the build folder:
 
@@ -501,7 +507,7 @@ CONFIG_APP_ENABLE_DEBUG_LOGS=y
 CONFIG_APP_ENABLE_SHELL=n
 ```
 
-**`build/zephyr/include/generated/autoconf.h`** (excerpt):
+**`build/zephyr/include/generated/zephyr/zephyr/autoconf.h`** (excerpt):
 
 ```c
 #define CONFIG_APP_ENABLE_BACKGROUND_WORK 1
@@ -558,7 +564,7 @@ different firmware** — purely because Kconfig options changed at build time.
 |---|---|
 | "My option isn't visible in menuconfig" | It likely has an unmet `depends on`. Enable the dependency first, or search with `/` to see its dependencies. |
 | "I set an option in prj.conf but it's still off" | A higher-priority source overrides it (Section 5), or its dependency isn't met. Check the build log — Kconfiglib prints warnings for unmet deps. |
-| "My #if defined(CONFIG_X) is false even though I enabled X" | Make sure `CONFIG_X=y` actually landed in `build/.config`, then check `autoconf.h`. Do a clean rebuild (`west build -p` / pristine build). |
+| "My #if defined(CONFIG_X) is false even though I enabled X" | Make sure `CONFIG_X=y` actually landed in `build/.config`, then check `zephyr/autoconf.h`. Do a clean rebuild (`west build -p` / pristine build). |
 | "Everything seems stale" | Build folder holds the old `.config`. Force a pristine build: `west build -p always` (or delete `build/`). |
 | "I want to find which option controls feature Y" | `menuconfig` → press `/`, type a keyword from the prompt or symbol name. |
 | "The symbol name vs config name confusion" | In Kconfig you write `config FOO`; everywhere else (`.conf` files, C code) it is `CONFIG_FOO`. |
@@ -580,7 +586,7 @@ different firmware** — purely because Kconfig options changed at build time.
 5. **Editing `build/.config` by hand.** It is generated; your changes will be
    lost. Edit `prj.conf` or an overlay instead, and use `menuconfig` as the
    interactive editor.
-6. **Not checking `.config` / `autoconf.h`.** When in doubt, read the resolved
+6. **Not checking `.config` / `zephyr/autoconf.h`.** When in doubt, read the resolved
    configuration — it is the ground truth of what the build is doing.
 
 ---
@@ -602,7 +608,7 @@ west flash --runner jlink       # e.g. Raspberry Pi Pico via J-Link
 
 # Inspect the resolved configuration
 cat build/.config
-cat build/zephyr/include/generated/autoconf.h
+cat build/zephyr/include/generated/zephyr/zephyr/autoconf.h
 
 # Extra overlay (highest priority)
 west build -- -DOVERLAY_CONFIG=extra.conf
@@ -642,13 +648,20 @@ config MY_FEATURE
   defconfig → `prj.conf` → overlay files (highest).
 - `menuconfig` and `guiconfig` are just editors for `.config`; they also enforce
   dependencies and prevent invalid configurations.
-- In C, options become `CONFIG_*` macros via the generated `autoconf.h`, and
+- In C, options become `CONFIG_*` macros via the generated `zephyr/autoconf.h`, and
   `#if defined(CONFIG_...)` includes or removes code before compilation.
 - **The same application can behave completely differently by changing
   configuration options without touching the source code** — enable the shell,
   disable the background task — and the proof is in `build/.config` and
-  `autoconf.h`. That is the power of Kconfig.
+  `zephyr/autoconf.h`. That is the power of Kconfig.
 
 ---
 
-*Next part of the lesson: **Device Tree** — describing the hardware.*
+## Related documents
+
+- [Create a New Zephyr Project](../03_Create_New_Project/README.md)
+- [Kconfig vs Devicetree](<../04_Kconfig_vs_Devicetree(DTS)/README.md>)
+- [Finding Features and Kconfig](Finding_Features_And_Kconfig.md)
+- [Devicetree Overlays Guide](<../04_Kconfig_vs_Devicetree(DTS)/Devicetree_Overlays_Guide.md>)
+- [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
+- [Custom Module](<../06_Create_Custom_Module_(Digital_To_Volt)/README.md>)
