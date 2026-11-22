@@ -11,6 +11,9 @@
 >
 > **Companion guide:** [Devicetree Overlays Guide](../07_Devicetree/Devicetree_Overlays_Guide.md)
 > — where to find binding properties and how to write overlays.
+>
+> **Build outputs:** [Build Configuration Outputs](Build_Configuration_Outputs.md)
+> — how `zephyr.dts` and `.config` are produced and how to inspect them.
 
 ---
 
@@ -421,6 +424,8 @@ cat build/zephyr/zephyr.dts  # inspect the fully merged Devicetree
 - [Kconfig deep dive](../05_KConfig/README.md)
 - [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
 - [Devicetree Overlays Guide](../07_Devicetree/Devicetree_Overlays_Guide.md)
+- [Build Configuration Outputs](Build_Configuration_Outputs.md) — how
+  `zephyr.dts` and `.config` are produced and inspected.
 - [Using Drivers and Software Modules](../03_Create_New_Project/Using_Drivers_And_Software_Modules.md)
 - [Custom Module](<../06_Create_Custom_Module_(Digital_To_Volt)/README.md>)
 - [Devicetree deep dive](../07_Devicetree/README.md)
