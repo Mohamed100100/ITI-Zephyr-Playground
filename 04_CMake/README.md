@@ -342,6 +342,62 @@ ninja --version                            # Ninja version
 
 ---
 
+## 10. Summary — how to create a Zephyr project
+
+1. **Find the board target.**
+   ```bash
+   west boards | grep -i <name>
+   ```
+
+2. **Read the board Devicetree** to find the LED alias and `compatible`.
+   ```bash
+   zephyr/boards/<vendor>/<board>/<board>.dts
+   ```
+
+3. **Create the project folder** (use `new_project` as a starting point).
+   ```bash
+   cp -r 03_Create_New_Project/new_project ~/projects/my_app
+   cd ~/projects/my_app
+   ```
+
+4. **Edit `CMakeLists.txt`** — the 5 important lines:
+   ```cmake
+   cmake_minimum_required(VERSION 3.28.0)
+   find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+   project(my_app)
+   target_sources(app PRIVATE src/main.c)
+   target_include_directories(app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/inc)
+   ```
+
+5. **Edit `prj.conf`** — enable the needed subsystems (`CONFIG_GPIO=y`,
+   `CONFIG_LOG=y`, ...).
+
+6. **Write `src/main.c`** — use Devicetree macros (`DT_ALIAS`, `GPIO_DT_SPEC_GET`)
+   instead of hard-coded pins.
+
+7. **Build from the project folder** (workspace can be elsewhere):
+   ```bash
+   source ~/zephyrproject/.venv/bin/activate
+   export ZEPHYR_BASE=~/zephyrproject/zephyr
+   west build -p always -b <board> -d build .
+   ```
+
+8. **Flash and monitor.**
+   ```bash
+   west flash -d build
+   ```
+
+9. **Inspect the result** when something is wrong.
+   ```bash
+   cat build/zephyr/.config
+   cat build/zephyr/zephyr.dts
+   ```
+
+That is the whole recipe. Everything else in this course (Kconfig, Devicetree,
+modules, overlays) plugs into these steps.
+
+---
+
 ## Related documents
 
 - [Create a New Zephyr Project](../03_Create_New_Project/README.md) — the
