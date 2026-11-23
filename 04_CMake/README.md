@@ -304,43 +304,7 @@ Use `-p always` to force a clean build.
 
 ---
 
-## 9. Important commands
-
-These are the commands you use most often. Run them from your **project
-folder** (with `ZEPHYR_BASE` set) or from the Zephyr workspace.
-
-```bash
-# --- environment (every new terminal) ---
-source ~/zephyrproject/.venv/bin/activate
-export ZEPHYR_BASE=~/zephyrproject/zephyr
-
-# --- build ---
-west build -b <board> -d build .          # build into ./build
-west build -p always -b <board> -d build . # clean build
-west build -t menuconfig -d build          # edit Kconfig
-west build -t guiconfig -d build           # graphical Kconfig editor
-west build -t run -d build                 # run on native_sim / QEMU
-
-# --- flash ---
-west flash -d build                        # flash the board
-west flash -d build --runner <runner>      # choose a specific runner
-
-# --- inspect the result ---
-cat build/zephyr/.config                   # final Kconfig
-cat build/zephyr/zephyr.dts                # final merged Devicetree
-ls build/zephyr/zephyr.elf                 # the firmware
-
-# --- discovery ---
-west boards | grep -i <name>               # find a board target
-west --version                             # west version
-cmake --version                            # CMake version
-ninja --version                            # Ninja version
-```
-
-> **Order tip:** activate the venv first, then set `ZEPHYR_BASE`, then build.
-> If you open a new terminal, do the first two steps again.
-
----
+See [11 Important Commands](../11_Important_Commands/README.md) for the full command list.
 
 ## Related documents
 

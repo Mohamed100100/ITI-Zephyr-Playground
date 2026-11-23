@@ -130,26 +130,7 @@ See [04 CMake](../04_CMake/README.md) §9 and
 
 ---
 
-## Important commands
-
-```bash
-# environment (every new terminal)
-source ~/zephyrproject/.venv/bin/activate
-export ZEPHYR_BASE=~/zephyrproject/zephyr
-
-# build
-west build -b <board> -d build .            # build into ./build
-west build -p always -b <board> -d build .  # clean build
-west build -t menuconfig -d build           # edit Kconfig (terminal)
-west build -t run -d build                  # run on native_sim / QEMU
-
-# flash
-west flash -d build
-
-# inspect
-cat build/zephyr/.config
-cat build/zephyr/zephyr.dts
-```
+See [11 Important Commands](../11_Important_Commands/README.md) for the full command list.
 
 ---
 

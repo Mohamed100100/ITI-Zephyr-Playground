@@ -37,6 +37,7 @@ another location.
 | 08 | `08_Devicetree` | Devicetree deep dive: concepts, syntax, bindings, macros, overlays, generated files | [Devicetree Overlays Guide](<08_Devicetree/Devicetree_Overlays_Guide.md>) |
 | 09 | `09_Create_Custom_Devicetree` | Create a custom binding (`power-switch`) and use it — Case A (auto-discovered in `app/dts/bindings/`) and Case B (separate DTS root, inside or outside Zephyr) | — |
 | 10 | `10_How_To_Create_A_Zephyr_Project` | Summary of the whole creation process: 9 steps from board to flashed firmware | — |
+| 11 | `11_Important_Commands` | All the important west/build/flash/inspect commands in one place | — |
 
 Suggested order: **01 → 02 → 03 → 04 → 05 → 06 → 08 → 07 / 09**.
 
@@ -45,54 +46,7 @@ Suggested order: **01 → 02 → 03 → 04 → 05 → 06 → 08 → 07 / 09**.
 
 ---
 
-## Important commands
-
-Run these from **your project folder** (with `ZEPHYR_BASE` set) or from the
-Zephyr workspace.
-
-### Environment (every new terminal)
-
-```bash
-source ~/zephyrproject/.venv/bin/activate
-export ZEPHYR_BASE=~/zephyrproject/zephyr
-```
-
-### Build
-
-```bash
-west build -b <board> -d build .            # build into ./build
-west build -p always -b <board> -d build .  # clean build
-west build -t menuconfig -d build           # edit Kconfig (terminal)
-west build -t guiconfig -d build            # edit Kconfig (graphical)
-west build -t run -d build                  # run on native_sim / QEMU
-```
-
-### Flash
-
-```bash
-west flash -d build                         # flash the board
-west flash -d build --runner <runner>       # choose a specific runner
-```
-
-### Inspect the result
-
-```bash
-cat build/zephyr/.config                    # final Kconfig
-cat build/zephyr/zephyr.dts                 # final merged Devicetree
-ls build/zephyr/zephyr.elf                  # the firmware
-```
-
-### Discovery
-
-```bash
-west boards | grep -i <name>                # find a board target
-west --version                              # west version
-cmake --version                             # CMake version
-ninja --version                             # Ninja version
-```
-
-> **Order tip:** activate the venv first, then set `ZEPHYR_BASE`, then build.
-> If you open a new terminal, do the first two steps again.
+See [11 Important Commands](11_Important_Commands/README.md) for the full command list.
 
 ---
 
