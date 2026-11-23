@@ -1,6 +1,8 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
 
+#include <app_config.h>
+
 #define LED0_NODE DT_ALIAS(led0)
 
 #if !DT_NODE_HAS_STATUS(LED0_NODE, okay)
@@ -28,7 +30,7 @@ int main(void)
 			return 0;
 		}
 
-		k_msleep(500);
+		k_msleep(APP_BLINK_DELAY_MS);
 	}
 
 	return 0;

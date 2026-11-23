@@ -4,6 +4,8 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/sys/util.h>
 
+#include <app_config.h>
+
 /* The WeAct ESP32-S3-Mini exposes its on-board WS2812 RGB LED
  * through the "rgb0" devicetree alias.
  */
@@ -49,7 +51,7 @@ int main(void)
 				return 0;
 			}
 
-			k_msleep(500);
+			k_msleep(APP_COLOR_DELAY_MS);
 		}
 	}
 

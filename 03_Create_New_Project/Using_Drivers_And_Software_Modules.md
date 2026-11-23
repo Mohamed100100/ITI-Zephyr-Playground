@@ -1,14 +1,14 @@
 # Using Drivers and Software Modules in Zephyr
 
 > Companion guide to [Create a New Zephyr Project](README.md),
-> [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md), and
-> [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>).
+> [Finding Features and Kconfig](../06_KConfig/Finding_Features_And_Kconfig.md), and
+> [Devicetree Overlays Guide](<../08_Devicetree/Devicetree_Overlays_Guide.md>).
 >
 > This guide explains the general lifecycle for using any Zephyr feature:
 > hardware drivers, subsystems, and software modules.
 >
-> **Learning path:** `03 Create Project` → `04 Kconfig vs Devicetree` →
-> `05 Kconfig deep dive` → `06 Custom Module`.
+> **Learning path:** `03 Create Project` → `04 CMake` → `05 Kconfig vs Devicetree` →
+> `06 Kconfig deep dive` → `07 Custom Module`.
 
 ---
 
@@ -80,7 +80,7 @@ Check:
 
 Do not edit Zephyr’s Kconfig definitions just to enable a feature.
 
-See [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+See [Finding Features and Kconfig](../06_KConfig/Finding_Features_And_Kconfig.md)
 for the full search workflow.
 
 ---
@@ -100,7 +100,7 @@ The hardware description may specify:
 
 **Software-only modules may not require devicetree configuration.**
 
-See [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
+See [Devicetree Overlays Guide](<../08_Devicetree/Devicetree_Overlays_Guide.md>)
 for how to find binding properties and write overlays.
 
 ---
@@ -319,9 +319,9 @@ successfully.**
 ## Related documents
 
 - [Create a New Zephyr Project](README.md) — full project examples.
-- [Finding Features and Kconfig](../05_KConfig/Finding_Features_And_Kconfig.md)
+- [Finding Features and Kconfig](../06_KConfig/Finding_Features_And_Kconfig.md)
   — how to find Kconfig options and drivers.
-- [Devicetree Overlays Guide](<../07_Devicetree/Devicetree_Overlays_Guide.md>)
+- [Devicetree Overlays Guide](<../08_Devicetree/Devicetree_Overlays_Guide.md>)
   — where to find overlay properties and how to write overlays.
-- [Kconfig deep dive](../05_KConfig/README.md) — symbols, `depends on`,
+- [Kconfig deep dive](../06_KConfig/README.md) — symbols, `depends on`,
   `select`, `default`, priority hierarchy.

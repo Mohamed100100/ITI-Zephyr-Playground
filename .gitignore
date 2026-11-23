@@ -1,0 +1,6 @@
+# Build output
+build/
+build_*/
+
+# Editor / tooling
+.vscode/

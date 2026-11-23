@@ -1,0 +1,20 @@
+source "Kconfig.zephyr"
+
+menu "Application Configuration"
+
+config APP_RANDOM_MAX
+    int "Maximum random value (exclusive)"
+    range 1 1000000
+    default 100
+    help
+      Upper bound for the generated random numbers.
+      The value is used as: sys_rand32_get() % APP_RANDOM_MAX.
+
+config APP_RANDOM_INTERVAL_MS
+    int "Interval between random numbers (ms)"
+    range 100 10000
+    default 1000
+    help
+      How often a new random number is generated.
+
+endmenu
