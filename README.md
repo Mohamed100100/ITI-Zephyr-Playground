@@ -36,6 +36,7 @@ another location.
 | 07 | `07_Create_Custom_Module_Digital_To_Volt` | Custom module end-to-end: `digital_to_volt_Module/` (`module.yml`, `Kconfig`, `CMakeLists`, `digital_to_volt.h/.c`) + `app/` demo (simulate on `native_sim`, real ADC on PA1 + LED threshold) | — |
 | 08 | `08_Devicetree` | Devicetree deep dive: concepts, syntax, bindings, macros, overlays, generated files | [Devicetree Overlays Guide](<08_Devicetree/Devicetree_Overlays_Guide.md>) |
 | 09 | `09_Create_Custom_Devicetree` | Create a custom binding (`power-switch`) and use it — Case A (auto-discovered in `app/dts/bindings/`) and Case B (separate DTS root, inside or outside Zephyr) | — |
+| 10 | `10_How_To_Create_A_Zephyr_Project` | Summary of the whole creation process: 9 steps from board to flashed firmware | — |
 
 Suggested order: **01 → 02 → 03 → 04 → 05 → 06 → 08 → 07 / 09**.
 
